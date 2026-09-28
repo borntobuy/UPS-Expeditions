@@ -1,0 +1,78 @@
+# Déploiement Render (Blueprint) : New > Blueprint > choisir le dépôt ups-expeditions
+# Coût : instance 0.5c-512mb (Starter, 7 $/mois) + disque 1 Go (0,25 $/mois)
+services:
+  - type: web
+    runtime: node
+    name: ups-expeditions
+    plan: 0.5c-512mb
+    region: frankfurt
+    buildCommand: npm ci --omit=dev
+    startCommand: node src/server.js
+    healthCheckPath: /healthz
+    disk:
+      name: ups-data
+      mountPath: /var/data
+      sizeGB: 1
+    envVars:
+      # --- Fonctionnement ---
+      - key: DATA_DIR
+        value: /var/data
+      - key: TZ
+        value: Europe/Paris
+      - key: APP_PASSWORD          # mot de passe pour ouvrir l'application
+        sync: false
+      - key: SESSION_SECRET
+        generateValue: true
+      # --- UPS ---
+      - key: UPS_ENV
+        value: test                # passer à production après les essais
+      - key: UPS_CLIENT_ID
+        sync: false
+      - key: UPS_CLIENT_SECRET
+        sync: false
+      - key: UPS_ACCOUNT_NUMBER
+        sync: false
+      - key: UPS_NEGOTIATED_RATES
+        value: "true"
+      - key: UPS_DDP
+        value: "false"
+      - key: UPS_LABEL_FORMAT
+        value: GIF
+      # --- Expéditeur ---
+      - key: SHIPPER_NAME
+        value: Benoît Fretel
+      - key: SHIPPER_ADDRESS1
+        value: 5 Boulevard Dautry
+      - key: SHIPPER_CITY
+        value: Pierrelatte
+      - key: SHIPPER_POSTAL_CODE
+        value: "26700"
+      - key: SHIPPER_COUNTRY
+        value: FR
+      - key: SHIPPER_PHONE
+        sync: false
+      - key: SHIPPER_EMAIL
+        sync: false
+      - key: DEFAULT_HS_CODE
+        sync: false
+      # --- eBay ---
+      - key: EBAY_CLIENT_ID
+        sync: false
+      - key: EBAY_CLIENT_SECRET
+        sync: false
+      - key: EBAY_RUNAME
+        sync: false
+      # --- Etsy ---
+      - key: ETSY_KEYSTRING
+        sync: false
+      - key: ETSY_SHARED_SECRET
+        sync: false
+      # --- Shopify ---
+      - key: SHOPIFY_SHOP
+        value: psangg-3f.myshopify.com
+      - key: SHOPIFY_AUTH_MODE
+        value: oauth
+      - key: SHOPIFY_CLIENT_ID
+        sync: false
+      - key: SHOPIFY_CLIENT_SECRET
+        sync: false

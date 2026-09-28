@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>UPS Expéditions</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand">
+      <h1>UPS Expéditions</h1>
+      <span id="envBadge" class="badge"></span>
+    </div>
+    <div id="platforms" class="platforms"></div>
+    <div class="top-actions">
+      <label class="check"><input type="checkbox" id="hideShipped" checked> Masquer les expédiées</label>
+      <button id="refreshBtn" class="btn">Actualiser les commandes</button>
+      <button id="quitBtn" class="btn" title="Arrête l'application" hidden>Quitter</button>
+      <button id="logoutBtn" class="btn" hidden>Déconnexion</button>
+    </div>
+  </header>
+
+  <section id="setup" class="setup" hidden></section>
+  <div id="alerts"></div>
+
+  <main>
+    <div class="list-head">
+      <label class="check"><input type="checkbox" id="selectAll"> Tout sélectionner</label>
+      <span id="count" class="muted"></span>
+    </div>
+    <div id="orders" class="orders"><p class="muted pad">Chargement…</p></div>
+  </main>
+
+  <footer class="bar">
+    <div class="bar-info">
+      <span id="selInfo">0 sélectionnée</span>
+      <span id="totalInfo" class="muted"></span>
+    </div>
+    <div class="bar-actions">
+      <button id="ratesBtn" class="btn" disabled>Obtenir les tarifs</button>
+      <button id="shipBtn" class="btn primary" disabled>Valider et générer</button>
+      <button id="printBtn" class="btn" disabled>Imprimer</button>
+    </div>
+  </footer>
+
+  <dialog id="confirmDlg">
+    <form method="dialog">
+      <h2>Confirmer les expéditions</h2>
+      <p id="confirmWarn" class="warn"></p>
+      <table class="confirm-table"><tbody id="confirmBody"></tbody></table>
+      <p class="total-line">Total : <strong id="confirmTotal"></strong></p>
+      <div class="dlg-actions">
+        <button value="cancel" class="btn">Annuler</button>
+        <button value="ok" class="btn primary" id="confirmOk">Confirmer et générer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
