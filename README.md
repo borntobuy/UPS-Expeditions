@@ -5,7 +5,7 @@ Petite application locale : elle récupère les commandes à expédier sur eBay,
 ## Déroulé
 
 1. **Actualiser les commandes** : commandes payées et non expédiées des trois plateformes.
-2. Pour chaque colis : format (ou L × l × H), poids, contenu, valeur déclarée, code SH si hors UE. La saisie est enregistrée automatiquement.
+2. Pour chaque colis : format (ou L × l × H), poids, contenu, valeur déclarée, code SH facultatif si hors UE. La saisie est enregistrée automatiquement.
 3. **Obtenir les tarifs** : l'outil interroge UPS en mode « Shop » (tous les services) puis présélectionne :
    - France / Europe : le service le moins cher ;
    - reste du monde : Express Saver, ou le moins cher (avec alerte) si Express Saver n'est pas proposé.
@@ -69,7 +69,7 @@ Si vous avez une ancienne app personnalisée avec un jeton `shpat_…`, mettez-l
 - L'adresse et le **téléphone** expéditeur dans `.env` (le téléphone est obligatoire pour l'international).
 - L'impression de la première étiquette : l'orientation se fait automatiquement, mais testez sur votre imprimante.
 - Droits et taxes : par défaut ils sont payés par le destinataire. Mettez `UPS_DDP=true` pour les prendre à votre charge.
-- Le contenu déclaré doit être rédigé en anglais pour la douane, et le code SH doit être renseigné.
+- Le contenu déclaré doit être rédigé en anglais pour la douane. Le code SH est facultatif (6 à 15 chiffres, ex. 970690) : sans code, l'envoi part quand même mais peut être plus long à dédouaner.
 
 ## Fichiers
 

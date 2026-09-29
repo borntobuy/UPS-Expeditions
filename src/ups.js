@@ -136,6 +136,7 @@ const weight = (parcel) => ({
 });
 
 const moneyVal = (v) => Number(v).toFixed(2);
+const hsCode = (p) => String(p.hsCode ?? '').replace(/[^0-9A-Za-z]/g, '');
 
 // ---------- Tarifs ----------
 
@@ -241,7 +242,8 @@ export function buildShipmentRequest(o, serviceCode) {
               Value: moneyVal(p.value),
               UnitOfMeasurement: { Code: 'PKG' }, // PKG = Package (liste UPS)
             },
-            ...(p.hsCode ? { CommodityCode: String(p.hsCode).replace(/[^0-9A-Za-z]/g, '') } : {}),
+            // code SH facultatif pour une facture commerciale (obligatoire seulement pour l'USMCA) : omis si vide
+            ...(hsCode(p) ? { CommodityCode: hsCode(p) } : {}),
             OriginCountryCode: config.customs.origin,
           },
         ],

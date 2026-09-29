@@ -53,8 +53,6 @@ services:
         sync: false
       - key: SHIPPER_EMAIL
         sync: false
-      - key: DEFAULT_HS_CODE
-        sync: false
       # --- eBay ---
       - key: EBAY_CLIENT_ID
         sync: false

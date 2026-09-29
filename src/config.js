@@ -50,7 +50,6 @@ export const config = {
     country: env('SHIPPER_COUNTRY', 'FR'),
   },
   customs: {
-    defaultHsCode: env('DEFAULT_HS_CODE'),
     origin: env('ORIGIN_COUNTRY', 'FR'),
   },
   ebay: {

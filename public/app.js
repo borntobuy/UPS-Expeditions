@@ -110,6 +110,12 @@ async function loadStatus() {
 
 // ---------------- Commandes ----------------
 
+// brouillons anciens : un code SH invalide (ex. 4 chiffres) est vidé plutôt que de bloquer l'envoi
+function cleanHs(p) {
+  const hs = String(p.hsCode || '').replace(/[\s.]/g, '');
+  return { ...p, hsCode: /^[0-9A-Za-z]{6,15}$/.test(hs) ? p.hsCode : '' };
+}
+
 function defaultParcel(o) {
   return {
     preset: '',
@@ -117,7 +123,7 @@ function defaultParcel(o) {
     contents: o.items.map((i) => (i.qty > 1 ? `${i.qty}x ` : '') + i.title).join('; ').slice(0, 100),
     value: o.goodsValue || '',
     currency: o.currency || 'EUR',
-    hsCode: state.status?.defaultHsCode || '',
+    hsCode: '', // aucun code SH par défaut
   };
 }
 
@@ -133,7 +139,7 @@ async function loadOrders() {
       return {
         ...o,
         address: old?.address || { ...o.address, ...(o.draft?.address || {}) },
-        parcel: old?.parcel || { ...defaultParcel(o), ...(o.draft?.parcel || {}) },
+        parcel: old?.parcel || cleanHs({ ...defaultParcel(o), ...(o.draft?.parcel || {}) }),
       };
     });
     const keys = new Set(state.orders.map((o) => o.key));

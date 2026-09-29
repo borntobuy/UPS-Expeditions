@@ -88,7 +88,6 @@ app.get('/api/status', (req, res) => {
     upsConfigured: config.mock || ups.upsConfigured(),
     shipperOk: Boolean(config.shipper.line1 && config.shipper.phone),
     labelFormat: config.ups.labelFormat,
-    defaultHsCode: config.customs.defaultHsCode,
     platforms,
     warnings: config.mock ? [] : [...(ebay.configured() ? ebay.diagnose() : []), ...etsyWarnings()],
     presets: load('presets', DEFAULT_PRESETS),
