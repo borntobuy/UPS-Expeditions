@@ -73,6 +73,7 @@ app.get('/api/status', (req, res) => {
         connected: config.mock || m.connected(),
         // bouton « Connecter » (Shopify seulement en mode oauth)
         connectable: k !== 'shopify' || m.needsConnect(),
+        reconnect: !config.mock && k === 'etsy' && m.needsReconnect(),
         // connexion par copier-coller de l'adresse d'arrivée (sinon retour automatique)
         paste: !config.mock && (k === 'ebay' ? !config.hosted : k === 'etsy' ? m.pasteFlow() : false),
         missing: config.mock ? [] : missingVars(k),
@@ -235,15 +236,16 @@ function writeFile(dir, name, base64) {
   return `/labels/${dir}/${name}`;
 }
 
-/** Envoie le numéro de suivi à la plateforme (eBay pour l'instant) et mémorise le résultat */
+/** Envoie le numéro de suivi à la plateforme (eBay, Etsy) et mémorise le résultat */
 async function syncTracking(key) {
   const rec = load('shipments', {})[key];
-  if (!rec || rec.voided || rec.platform !== 'ebay') return rec?.platformSync || null;
+  if (!rec || rec.voided || !['ebay', 'etsy'].includes(rec.platform)) return rec?.platformSync || null;
   let result;
   try {
     if (rec.mock || config.mock) result = { ok: true, at: new Date().toISOString(), demo: true };
     else {
-      await ebay.markShipped(rec.ref, rec.tracking[0], rec.createdAt);
+      if (rec.platform === 'ebay') await ebay.markShipped(rec.ref, rec.tracking[0], rec.createdAt);
+      else await etsy.markShipped(rec.ref, rec.tracking[0]);
       result = { ok: true, at: new Date().toISOString() };
     }
   } catch (e) {

@@ -4,7 +4,8 @@ import { config } from '../config.js';
 import { load, update, cachedThumb, eachLimit } from '../store.js';
 
 const API = 'https://api.etsy.com/v3';
-const SCOPES = 'transactions_r email_r shops_r';
+// transactions_w : nécessaire pour envoyer le numéro de suivi (createReceiptShipment)
+const SCOPES = 'transactions_r transactions_w email_r shops_r';
 const b64url = (buf) => buf.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 
 export const configured = () =>
@@ -12,6 +13,8 @@ export const configured = () =>
 // Si la callback est celle de cette application, Etsy nous renvoie directement ; sinon copier-coller
 export const pasteFlow = () => !config.etsy.redirectUri.startsWith(`${config.baseUrl}/`);
 export const connected = () => Boolean(load('tokens', {}).etsy?.refresh);
+/** Connexion faite avant l'ajout du droit d'écriture : il faut se reconnecter une fois */
+export const needsReconnect = () => connected() && !String(load('tokens', {}).etsy?.scopes || '').includes('transactions_w');
 
 // state -> verifier, conservé sur disque pour survivre à un redémarrage
 const PENDING = 'etsy-oauth-pending';
@@ -89,6 +92,9 @@ export async function handleCallback(code, state) {
       code_verifier: verifier,
     }),
   );
+  update('tokens', {}, (t) => {
+    t.etsy.scopes = SCOPES;
+  });
 }
 
 async function accessToken() {
@@ -177,4 +183,34 @@ export async function fetchOrders() {
     delete i.imageId;
   }
   return orders;
+}
+
+/**
+ * Marque la commande expédiée sur Etsy avec le suivi UPS (createReceiptShipment, droit transactions_w).
+ * Etsy prévient l'acheteur par e-mail. Transporteur « ups » ; si Etsy le refuse, « other ».
+ */
+export async function markShipped(receiptId, tracking) {
+  if (needsReconnect()) throw new Error('Reconnectez Etsy (bouton « Reconnecter ») pour autoriser l\'envoi du suivi');
+  const id = await shopId();
+  const token = await accessToken();
+  const send = (carrier) =>
+    fetch(`${API}/application/shops/${id}/receipts/${encodeURIComponent(receiptId)}/tracking`, {
+      method: 'POST',
+      headers: {
+        'x-api-key': `${config.etsy.keystring}:${config.etsy.sharedSecret}`,
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ tracking_code: String(tracking).replace(/\s/g, ''), carrier_name: carrier }),
+    });
+  let r = await send('ups');
+  if (!r.ok && r.status === 400) {
+    const j = await r.clone().json().catch(() => ({}));
+    if (/carrier/i.test(JSON.stringify(j))) r = await send('other');
+  }
+  if (!r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(`Etsy : ${j.error || `HTTP ${r.status}`}`);
+  }
+  return { ok: true };
 }
