@@ -43,11 +43,22 @@ async function mapLimit(items, limit, fn) {
 
 // ---------- Statut / réglages ----------
 
+const WHERE = () => (config.hosted ? 'les variables Render (Environment)' : 'le fichier .env');
+const MISSING = {
+  ebay: () => [['EBAY_CLIENT_ID', config.ebay.clientId], ['EBAY_CLIENT_SECRET', config.ebay.clientSecret], ['EBAY_RUNAME', config.ebay.ruName]],
+  etsy: () => [['ETSY_KEYSTRING', config.etsy.keystring], ['ETSY_SHARED_SECRET', config.etsy.sharedSecret], ['ETSY_REDIRECT_URI', config.etsy.redirectUri]],
+  shopify: () =>
+    config.shopify.adminToken
+      ? [['SHOPIFY_SHOP', config.shopify.shop]]
+      : [['SHOPIFY_SHOP', config.shopify.shop], ['SHOPIFY_CLIENT_ID', config.shopify.clientId], ['SHOPIFY_CLIENT_SECRET', config.shopify.clientSecret]],
+};
+const missingVars = (k) => MISSING[k]().filter(([, v]) => !v).map(([n]) => n);
+
 function etsyWarnings() {
   const { keystring, redirectUri } = config.etsy;
   if (!keystring) return [];
   if (!redirectUri)
-    return ["Etsy : renseignez ETSY_REDIRECT_URI dans .env avec une des « Callback URLs » déclarées dans l'app Etsy (copie exacte)."];
+    return [`Etsy : renseignez ETSY_REDIRECT_URI dans ${WHERE()} avec une des « Callback URLs » déclarées dans l'app Etsy (copie exacte).`];
   if (!redirectUri.startsWith('https://'))
     return ['Etsy : ETSY_REDIRECT_URI doit commencer par https:// (exigence Etsy).'];
   return [];
@@ -64,6 +75,7 @@ app.get('/api/status', (req, res) => {
         connectable: k !== 'shopify' || m.needsConnect(),
         // connexion par copier-coller de l'adresse d'arrivée (sinon retour automatique)
         paste: !config.mock && (k === 'ebay' ? !config.hosted : k === 'etsy' ? m.pasteFlow() : false),
+        missing: config.mock ? [] : missingVars(k),
       },
     ]),
   );
@@ -71,6 +83,7 @@ app.get('/api/status', (req, res) => {
     mock: config.mock,
     hosted: config.hosted,
     authEnabled: Boolean(config.auth.password),
+    configWhere: WHERE(),
     upsEnv: config.mock ? 'démo' : config.ups.env,
     upsConfigured: config.mock || ups.upsConfigured(),
     shipperOk: Boolean(config.shipper.line1 && config.shipper.phone),
@@ -162,7 +175,7 @@ function checkOrder(o) {
 app.post(
   '/api/rates',
   wrap(async (req, res) => {
-    if (!config.mock && !ups.upsConfigured()) throw new Error('Identifiants UPS manquants dans .env');
+    if (!config.mock && !ups.upsConfigured()) throw new Error(`Identifiants UPS manquants dans ${WHERE()}`);
     const list = Array.isArray(req.body?.orders) ? req.body.orders : [];
     const results = await mapLimit(list, 3, async (o) => {
       const missing = checkOrder(o);
@@ -214,7 +227,7 @@ function writeFile(dir, name, base64) {
 app.post(
   '/api/ship',
   wrap(async (req, res) => {
-    if (!config.mock && !ups.upsConfigured()) throw new Error('Identifiants UPS manquants dans .env');
+    if (!config.mock && !ups.upsConfigured()) throw new Error(`Identifiants UPS manquants dans ${WHERE()}`);
     const items = Array.isArray(req.body?.items) ? req.body.items : [];
     const force = Boolean(req.body?.force);
     const results = [];

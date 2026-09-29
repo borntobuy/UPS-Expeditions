@@ -66,10 +66,14 @@ async function loadStatus() {
 
   const tips = [];
   if (!s.mock) {
-    if (!s.upsConfigured) tips.push('Renseignez <code>UPS_CLIENT_ID</code>, <code>UPS_CLIENT_SECRET</code> et <code>UPS_ACCOUNT_NUMBER</code> dans le fichier <code>.env</code>, puis relancez.');
-    if (!s.shipperOk) tips.push('Adresse ou téléphone expéditeur manquant (<code>SHIPPER_*</code> dans <code>.env</code>). UPS exige un téléphone pour l\'international.');
+    const where = esc(s.configWhere || 'le fichier .env');
+    if (!s.upsConfigured) tips.push(`Renseignez <code>UPS_CLIENT_ID</code>, <code>UPS_CLIENT_SECRET</code> et <code>UPS_ACCOUNT_NUMBER</code> dans ${where}.`);
+    if (!s.shipperOk) tips.push(`Adresse ou téléphone expéditeur manquant (<code>SHIPPER_*</code> dans ${where}). UPS exige un téléphone pour l'international.`);
     for (const [k, p] of Object.entries(s.platforms)) {
-      if (!p.configured) tips.push(`${PLAT[k]} : identifiants absents du <code>.env</code> (ignoré).`);
+      if (!p.configured) {
+        const miss = (p.missing || []).map((n) => `<code>${esc(n)}</code>`).join(', ');
+        tips.push(`${PLAT[k]} : ${miss ? `à renseigner dans ${where} : ${miss}` : `configuration incomplète dans ${where}`}.`);
+      }
     }
   }
   for (const w of s.warnings || []) tips.push(esc(w));
