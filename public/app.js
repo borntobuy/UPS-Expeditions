@@ -193,7 +193,7 @@ function cardHtml(o) {
       <label class="f"><span>Devise</span><select data-k="${esc(o.key)}" data-p="currency">
         ${['EUR', 'USD', 'GBP', 'CAD', 'CHF', 'AUD'].map((c) => `<option ${p.currency === c ? 'selected' : ''}>${c}</option>`).join('')}
       </select></label>
-      ${o.customs ? field(o.key, 'hsCode', 'Code SH', p.hsCode, 'inputmode="numeric"') : ''}
+      ${o.customs ? field(o.key, 'hsCode', 'Code SH (6 chiffres min.)', p.hsCode, 'inputmode="numeric" placeholder="ex. 970690" title="6 à 15 chiffres, points acceptés (9706.90)"') : ''}
     </div>`}
     <div class="result" data-result="${esc(o.key)}">${resultHtml(o)}</div>
   </article>`;
@@ -391,7 +391,10 @@ function markMissing(o) {
   const c = card?.querySelector('[data-p="contents"]');
   const okC = String(o.parcel.contents || '').trim().length > 0;
   c?.classList.toggle('bad', !okC);
-  return bad || !okC;
+  const hs = String(o.parcel.hsCode || '').replace(/[\s.]/g, '');
+  const okH = !o.customs || !hs || /^[0-9A-Za-z]{6,15}$/.test(hs);
+  card?.querySelector('[data-p="hsCode"]')?.classList.toggle('bad', !okH);
+  return bad || !okC || !okH;
 }
 
 const payload = (o) => ({ key: o.key, platform: o.platform, ref: o.ref, address: o.address, parcel: o.parcel });

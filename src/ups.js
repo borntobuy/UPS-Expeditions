@@ -241,7 +241,7 @@ export function buildShipmentRequest(o, serviceCode) {
               Value: moneyVal(p.value),
               UnitOfMeasurement: { Code: 'PKG' }, // PKG = Package (liste UPS)
             },
-            ...(p.hsCode ? { CommodityCode: String(p.hsCode).replace(/\D/g, '') } : {}),
+            ...(p.hsCode ? { CommodityCode: String(p.hsCode).replace(/[^0-9A-Za-z]/g, '') } : {}),
             OriginCountryCode: config.customs.origin,
           },
         ],

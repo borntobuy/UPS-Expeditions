@@ -175,6 +175,9 @@ function checkOrder(o) {
   if (!p.currency) miss.push('devise');
   if (!a.name || !a.line1 || !a.city || !a.country) miss.push('adresse');
   if (a.country === 'US' && !a.state) miss.push('État (US)');
+  // UPS : code SH de 6 à 15 caractères (erreur 128048 sinon) ; vide = pas de code
+  const hs = String(p.hsCode || '').replace(/[\s.]/g, '');
+  if (hs && !/^[0-9A-Za-z]{6,15}$/.test(hs)) miss.push('code SH (6 à 15 chiffres, ex. 970690)');
   const labels = { length: 'longueur', width: 'largeur', height: 'hauteur', weight: 'poids' };
   return miss.map((m) => labels[m] || m);
 }
