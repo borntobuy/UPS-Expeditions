@@ -181,6 +181,25 @@ app.post(
   }),
 );
 
+// ---------- Aperçu avant création (aucun appel UPS) ----------
+
+app.post(
+  '/api/preview',
+  wrap(async (req, res) => {
+    const items = Array.isArray(req.body?.items) ? req.body.items : [];
+    const results = items.map(({ order: o, serviceCode }) => {
+      const missing = checkOrder(o);
+      if (missing.length || !serviceCode) return { key: o?.key, error: `Champs manquants : ${missing.join(', ') || 'service'}` };
+      try {
+        return { ...ups.previewShipment(o, serviceCode), serviceName: serviceName(serviceCode) };
+      } catch (e) {
+        return { key: o.key, error: e.message };
+      }
+    });
+    res.json({ results });
+  }),
+);
+
 // ---------- Expédition ----------
 
 const safe = (s) => String(s).replace(/[^\w.-]+/g, '_').slice(0, 60);

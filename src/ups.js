@@ -68,9 +68,25 @@ function upsError(j) {
 const cut = (s, n) => String(s ?? '').trim().slice(0, n);
 const digits = (s) => String(s ?? '').replace(/[^\d+]/g, '').slice(0, 15);
 
+/** Découpe les lignes d'adresse en 3 lignes de 35 caractères max (limite UPS) sans rien perdre si possible */
+export function addressLines(a) {
+  const out = [];
+  for (const raw of [a.line1, a.line2]) {
+    let rest = String(raw ?? '').replace(/\s+/g, ' ').trim();
+    while (rest) {
+      if (rest.length <= 35) { out.push(rest); break; }
+      let i = rest.lastIndexOf(' ', 35);
+      if (i < 10) i = 35;
+      out.push(rest.slice(0, i).trim());
+      rest = rest.slice(i).trim();
+    }
+  }
+  return { lines: out.slice(0, 3), lost: out.slice(3).join(' ') };
+}
+
 function address(a) {
   const o = {
-    AddressLine: [a.line1, a.line2].map((l) => cut(l, 35)).filter(Boolean),
+    AddressLine: addressLines(a).lines,
     City: cut(a.city, 30),
     PostalCode: cut(a.postalCode, 9),
     CountryCode: String(a.country).toUpperCase(),
@@ -175,7 +191,8 @@ function chunks(s, size, max) {
   return out.length ? out : ['Merchandise'];
 }
 
-export async function createShipment(o, serviceCode) {
+/** Requête ShipmentRequest exacte (utilisée par l'aperçu ET par la création) */
+export function buildShipmentRequest(o, serviceCode) {
   const p = o.parcel;
   const customs = needsCustoms(o.address.country, o.address.postalCode);
   const charges = [{ Type: '01', BillShipper: { AccountNumber: config.ups.account } }];
@@ -190,6 +207,9 @@ export async function createShipment(o, serviceCode) {
     ShipTo: shipToParty(o),
     PaymentInformation: { ShipmentCharge: charges },
     Service: { Code: serviceCode },
+    // n° de commande de la plateforme (référence niveau envoi : autorisée hors US→US / PR→PR)
+    ReferenceNumber: [{ Value: cut(String(o.ref).replace(/^#/, ''), 35) }],
+    // pas de DeclaredValue : aucune valeur déclarée (assurance) sur le colis
     Package: [
       {
         Description: cut(p.contents, 35),
@@ -207,7 +227,7 @@ export async function createShipment(o, serviceCode) {
     shipment.ShipmentServiceOptions = {
       InternationalForms: {
         FormType: '01', // facture commerciale
-        InvoiceNumber: cut(`${o.platform}-${o.ref}`, 35),
+        InvoiceNumber: cut(String(o.ref).replace(/^#/, ''), 35), // n° de commande de la plateforme
         InvoiceDate: yyyymmdd(),
         ReasonForExport: 'SALE',
         CurrencyCode: p.currency,
@@ -215,10 +235,11 @@ export async function createShipment(o, serviceCode) {
         Product: [
           {
             Description: chunks(p.contents, 35, 3),
+            // une seule ligne : 1 colis, valeur = valeur en douane saisie ; pas de détail par article
             Unit: {
               Number: '1',
               Value: moneyVal(p.value),
-              UnitOfMeasurement: { Code: 'PCS' },
+              UnitOfMeasurement: { Code: 'PKG' }, // PKG = Package (liste UPS)
             },
             ...(p.hsCode ? { CommodityCode: String(p.hsCode).replace(/\D/g, '') } : {}),
             OriginCountryCode: config.customs.origin,
@@ -232,13 +253,72 @@ export async function createShipment(o, serviceCode) {
   const labelSpec = { LabelImageFormat: { Code: fmt } };
   if (fmt === 'ZPL' || fmt === 'EPL' || fmt === 'SPL') labelSpec.LabelStockSize = { Height: '6', Width: '4' };
 
-  const j = await call('POST', `/api/shipments/${config.ups.shipVersion}/ship`, {
+  return {
     ShipmentRequest: {
       Request: { RequestOption: 'validate', TransactionReference: { CustomerContext: cut(o.key, 50) } },
       Shipment: shipment,
       LabelSpecification: labelSpec,
     },
-  });
+  };
+}
+
+/** Aperçu lisible de ce qui sera envoyé à UPS, avec les points à vérifier */
+export function previewShipment(o, serviceCode) {
+  const req = buildShipmentRequest(o, serviceCode);
+  const sh = req.ShipmentRequest.Shipment;
+  const f = sh.ShipmentServiceOptions?.InternationalForms;
+  const prod = f?.Product?.[0];
+  const warnings = [];
+  const { lost } = addressLines(o.address);
+  if (lost) warnings.push(`Adresse trop longue : « ${lost} » ne tient pas sur les 3 lignes UPS`);
+  if (!sh.ShipTo.Phone?.Number) warnings.push('Pas de téléphone destinataire');
+  if (f && !prod?.CommodityCode) warnings.push('Aucun code SH : risque de retard en douane');
+  if (o.address.company) warnings.push(`Destinataire avec société : « ${o.address.company} »`);
+  return {
+    key: o.key,
+    shipTo: {
+      name: sh.ShipTo.Name,
+      attention: sh.ShipTo.AttentionName,
+      lines: sh.ShipTo.Address.AddressLine,
+      city: sh.ShipTo.Address.City,
+      postalCode: sh.ShipTo.Address.PostalCode,
+      state: sh.ShipTo.Address.StateProvinceCode || '',
+      country: sh.ShipTo.Address.CountryCode,
+      phone: sh.ShipTo.Phone?.Number || '',
+      email: sh.ShipTo.EMailAddress || '',
+      residential: 'ResidentialAddressIndicator' in sh.ShipTo.Address,
+    },
+    shipper: { name: sh.Shipper.Name, business: Boolean(config.shipper.company) },
+    reference: sh.ReferenceNumber?.[0]?.Value || '',
+    declaredValue: sh.Package[0].PackageServiceOptions?.DeclaredValue ? 'oui' : '',
+    package: {
+      dims: `${sh.Package[0].Dimensions.Length} × ${sh.Package[0].Dimensions.Width} × ${sh.Package[0].Dimensions.Height} cm`,
+      weight: `${sh.Package[0].PackageWeight.Weight} kg`,
+      description: sh.Package[0].Description,
+    },
+    customs: f
+      ? {
+          invoiceNumber: f.InvoiceNumber,
+          reason: f.ReasonForExport,
+          currency: f.CurrencyCode,
+          description: prod.Description.join(' '),
+          hsCode: prod.CommodityCode || '',
+          unit: prod.Unit.UnitOfMeasurement.Code,
+          quantity: prod.Unit.Number,
+          unitValue: prod.Unit.Value,
+          total: (Number(prod.Unit.Value) * Number(prod.Unit.Number)).toFixed(2),
+          origin: prod.OriginCountryCode,
+          dutiesPaidBy: config.ups.ddp ? 'expéditeur (DDP)' : 'destinataire',
+        }
+      : null,
+    warnings,
+    request: req,
+  };
+}
+
+export async function createShipment(o, serviceCode) {
+  const fmt = config.ups.labelFormat;
+  const j = await call('POST', `/api/shipments/${config.ups.shipVersion}/ship`, buildShipmentRequest(o, serviceCode));
 
   const res = j?.ShipmentResponse?.ShipmentResults;
   if (!res) throw new Error('Réponse UPS inattendue (pas de ShipmentResults)');

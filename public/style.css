@@ -166,3 +166,19 @@ dialog h2 { margin: 0 0 10px; font-size: 17px; }
 .login h1 { margin: 0; font-size: 20px; }
 .login .btn { justify-self: start; }
 [hidden] { display: none !important; }
+
+/* Aperçu avant création */
+#confirmDlg { width: min(1000px, 96vw); max-height: 92vh; }
+.pv-list { display: grid; gap: 14px; max-height: 62vh; overflow: auto; margin: 10px 0; }
+.pv { border: 1px solid var(--line); border-radius: var(--radius); padding: 12px; background: var(--card); }
+.pv-head { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.pv-price { margin-left: auto; font-weight: 700; }
+.pv-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px; }
+.pv-grid table { border-collapse: collapse; font-size: 13px; width: 100%; }
+.pv-grid caption { text-align: left; font-weight: 700; padding-bottom: 4px; }
+.pv-grid th { text-align: left; font-weight: 500; color: var(--muted); padding: 3px 8px 3px 0; vertical-align: top; width: 45%; }
+.pv-grid td { padding: 3px 0; border-bottom: 1px solid var(--line); }
+.pv-grid code { background: var(--bg); padding: 1px 4px; border-radius: 4px; }
+.pv-warn { margin: 0 0 8px; padding: 8px 8px 8px 26px; background: var(--warn-bg); color: var(--warn); border-radius: 8px; font-size: 13px; }
+.pv details { margin-top: 8px; font-size: 12px; }
+.pv pre { max-height: 260px; overflow: auto; background: var(--bg); padding: 8px; border-radius: 6px; }

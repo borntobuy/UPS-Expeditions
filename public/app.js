@@ -417,19 +417,31 @@ $('#ratesBtn').addEventListener('click', async () => {
 
 // ---------------- Validation et génération ----------------
 
-$('#shipBtn').addEventListener('click', () => {
+$('#shipBtn').addEventListener('click', async () => {
   const ready = selectedPending().filter((o) => state.rates[o.key] && !state.rates[o.key].error);
   if (!ready.length) return;
+  const btn = $('#shipBtn');
+  btn.disabled = true;
+  let previews;
+  try {
+    ({ results: previews } = await api('/api/preview', {
+      method: 'POST',
+      body: { items: ready.map((o) => ({ order: payload(o), serviceCode: state.rates[o.key].code })) },
+    }));
+  } catch (e) {
+    alertMsg(esc(e.message));
+    return;
+  } finally {
+    updateBar();
+  }
   const sums = {};
-  $('#confirmBody').innerHTML = ready
-    .map((o) => {
-      const r = state.rates[o.key];
-      const x = r.rates.find((y) => y.code === r.code);
-      sums[x.currency] = (sums[x.currency] || 0) + x.total;
-      return `<tr><td><span class="plat ${o.platform}">${PLAT[o.platform]}</span> ${esc(o.ref)}</td>
-        <td>${esc(o.address.name)} (${esc(o.address.country)})</td><td>${esc(x.name)}</td><td>${fmt(x.total, x.currency)}</td></tr>`;
-    })
-    .join('');
+  $('#confirmBody').innerHTML = previews.map((pv) => {
+    const o = byKey(pv.key);
+    const r = state.rates[pv.key];
+    const x = r.rates.find((y) => y.code === r.code);
+    sums[x.currency] = (sums[x.currency] || 0) + x.total;
+    return previewHtml(o, pv, x);
+  }).join('');
   $('#confirmTotal').textContent = Object.entries(sums).map(([c, v]) => fmt(v, c)).join(' + ');
   const s = state.status;
   $('#confirmWarn').textContent = s.mock
@@ -437,6 +449,8 @@ $('#shipBtn').addEventListener('click', () => {
     : s.upsEnv === 'production'
       ? `${ready.length} étiquette(s) seront créées et facturées sur votre compte UPS.`
       : 'Environnement de test UPS : étiquettes non valables pour l\'envoi.';
+  const blocked = previews.filter((p) => p.error).length;
+  $('#confirmOk').disabled = blocked > 0;
   const dlg = $('#confirmDlg');
   dlg.returnValue = '';
   dlg.showModal();
@@ -445,6 +459,52 @@ $('#shipBtn').addEventListener('click', () => {
     await ship(ready);
   };
 });
+
+function previewHtml(o, pv, rate) {
+  const head = `<div class="pv-head"><span class="plat ${o.platform}">${PLAT[o.platform]}</span> <strong>${esc(o.ref)}</strong>
+    <span>${esc(rate.name)}</span><span class="pv-price">${fmt(rate.total, rate.currency)}</span></div>`;
+  if (pv.error) return `<section class="pv">${head}<p class="error">${esc(pv.error)}</p></section>`;
+  const t = pv.shipTo;
+  const row = (k, v, cls = '') => `<tr class="${cls}"><th>${k}</th><td>${v || '<span class="muted">—</span>'}</td></tr>`;
+  const c = pv.customs;
+  const masked = JSON.stringify(pv.request, null, 2).replace(/("(?:ShipperNumber|AccountNumber)":\s*")(\w*)(\w{2})"/g, (m, a, b, d) => `${a}${'•'.repeat(b.length)}${d}"`);
+  return `<section class="pv">${head}
+    ${pv.warnings.length ? `<ul class="pv-warn">${pv.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
+    <div class="pv-grid">
+      <table><caption>Destinataire</caption>
+        ${row('Nom', esc(t.name))}
+        ${t.attention !== t.name ? row('À l\'attention de', esc(t.attention)) : ''}
+        ${t.lines.map((l, i) => row(`Adresse ${i + 1}`, `<code>${esc(l)}</code>`)).join('')}
+        ${row('Code postal / ville', esc(`${t.postalCode} ${t.city}`))}
+        ${t.state ? row('État / région', esc(t.state)) : ''}
+        ${row('Pays', esc(t.country))}
+        ${row('Téléphone', esc(t.phone))}
+        ${row('E-mail', esc(t.email))}
+        ${row('Type', t.residential ? 'Particulier (adresse résidentielle)' : 'Entreprise')}
+      </table>
+      <table><caption>Envoi</caption>
+        ${row('Expéditeur', `${esc(pv.shipper.name)} — ${pv.shipper.business ? 'entreprise' : 'particulier'}`)}
+        ${row('Référence (n° de commande)', `<code>${esc(pv.reference)}</code>`)}
+        ${row('Valeur déclarée (assurance)', pv.declaredValue ? esc(pv.declaredValue) : 'aucune')}
+        ${row('Colis', esc(`${pv.package.dims} · ${pv.package.weight}`))}
+        ${row('Description colis', esc(pv.package.description))}
+      </table>
+      ${c ? `<table><caption>Documents douaniers (facture commerciale)</caption>
+        ${row('N° de facture', `<code>${esc(c.invoiceNumber)}</code>`)}
+        ${row('Motif', c.reason === 'SALE' ? 'Vente (SALE)' : esc(c.reason))}
+        ${row('Description marchandise', esc(c.description))}
+        ${row('Code SH', c.hsCode ? esc(c.hsCode) : 'aucun')}
+        ${row('Unité', c.unit === 'PKG' ? 'Colis (PKG)' : esc(c.unit))}
+        ${row('Quantité', esc(c.quantity))}
+        ${row('Valeur unitaire', fmt(c.unitValue, c.currency))}
+        ${row('Valeur totale en douane', fmt(c.total, c.currency))}
+        ${row('Pays d\'origine', esc(c.origin))}
+        ${row('Droits et taxes payés par', esc(c.dutiesPaidBy))}
+      </table>` : ''}
+    </div>
+    <details><summary>Requête exacte envoyée à UPS</summary><pre>${esc(masked)}</pre></details>
+  </section>`;
+}
 
 async function ship(list) {
   const btn = $('#shipBtn');

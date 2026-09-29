@@ -46,9 +46,10 @@
 
   <dialog id="confirmDlg">
     <form method="dialog">
-      <h2>Confirmer les expéditions</h2>
+      <h2>Aperçu avant création</h2>
+      <p class="muted">Vérifiez chaque envoi : c'est exactement ce qui sera transmis à UPS.</p>
       <p id="confirmWarn" class="warn"></p>
-      <table class="confirm-table"><tbody id="confirmBody"></tbody></table>
+      <div id="confirmBody" class="pv-list"></div>
       <p class="total-line">Total : <strong id="confirmTotal"></strong></p>
       <div class="dlg-actions">
         <button value="cancel" class="btn">Annuler</button>
