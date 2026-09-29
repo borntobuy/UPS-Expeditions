@@ -101,7 +101,7 @@ const QUERY = `query UnshippedOrders($q: String!) {
   }
 }`;
 
-export async function fetchOrders() {
+export async function fetchOrders(retried = false) {
   const r = await fetch(`https://${s().shop}/admin/api/${s().apiVersion}/graphql.json`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': await token() },
@@ -113,6 +113,16 @@ export async function fetchOrders() {
   const j = await r.json().catch(() => ({}));
   if (!r.ok || j.errors) {
     const msg = Array.isArray(j.errors) ? j.errors.map((e) => e.message).join(' | ') : j.errors;
+    if (/access denied/i.test(String(msg))) {
+      // droits modifiés dans l'app depuis l'obtention du jeton : on en redemande un une fois
+      if (!retried && !s().adminToken && !oauth()) {
+        cached = null;
+        return fetchOrders(true);
+      }
+      throw new Error(
+        `${msg} — l'app Shopify doit avoir le droit read_orders (et l'accès aux données client protégées), puis être mise à jour sur la boutique`,
+      );
+    }
     throw new Error(msg || `HTTP ${r.status}`);
   }
 
