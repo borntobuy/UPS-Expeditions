@@ -182,3 +182,35 @@ export async function fetchOrders() {
   }
   return orders;
 }
+
+/**
+ * Marque la commande expédiée sur eBay avec le numéro de suivi UPS
+ * (Fulfillment API createShippingFulfillment, portée sell.fulfillment, réponse 201).
+ */
+export async function markShipped(orderId, tracking, shippedAt = new Date()) {
+  const tok = await accessToken();
+  const headers = { Authorization: `Bearer ${tok}`, 'Content-Type': 'application/json' };
+  const id = encodeURIComponent(orderId);
+  const o = await fetch(`${API}/sell/fulfillment/v1/order/${id}`, { headers }).then(async (r) => {
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j?.errors?.[0]?.longMessage || j?.errors?.[0]?.message || `eBay HTTP ${r.status}`);
+    return j;
+  });
+  const lineItems = (o.lineItems || []).map((li) => ({ lineItemId: li.lineItemId, quantity: li.quantity }));
+  if (!lineItems.length) throw new Error('Commande eBay sans article');
+  const r = await fetch(`${API}/sell/fulfillment/v1/order/${id}/shipping_fulfillment`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      lineItems,
+      shippedDate: new Date(shippedAt).toISOString(),
+      shippingCarrierCode: 'UPS',
+      trackingNumber: String(tracking).replace(/[^0-9A-Za-z]/g, ''),
+    }),
+  });
+  if (r.status !== 201 && !r.ok) {
+    const j = await r.json().catch(() => ({}));
+    throw new Error(j?.errors?.[0]?.longMessage || j?.errors?.[0]?.message || `eBay HTTP ${r.status}`);
+  }
+  return { ok: true };
+}

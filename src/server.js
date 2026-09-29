@@ -235,6 +235,35 @@ function writeFile(dir, name, base64) {
   return `/labels/${dir}/${name}`;
 }
 
+/** Envoie le numéro de suivi à la plateforme (eBay pour l'instant) et mémorise le résultat */
+async function syncTracking(key) {
+  const rec = load('shipments', {})[key];
+  if (!rec || rec.voided || rec.platform !== 'ebay') return rec?.platformSync || null;
+  let result;
+  try {
+    if (rec.mock || config.mock) result = { ok: true, at: new Date().toISOString(), demo: true };
+    else {
+      await ebay.markShipped(rec.ref, rec.tracking[0], rec.createdAt);
+      result = { ok: true, at: new Date().toISOString() };
+    }
+  } catch (e) {
+    result = { ok: false, at: new Date().toISOString(), error: e.message };
+  }
+  update('shipments', {}, (s) => {
+    if (s[key]) s[key].platformSync = result;
+  });
+  return result;
+}
+
+app.post(
+  '/api/sync/:key',
+  wrap(async (req, res) => {
+    const r = await syncTracking(req.params.key);
+    if (!r) throw new Error('Rien à envoyer pour cette commande');
+    res.json(r);
+  }),
+);
+
 app.post(
   '/api/ship',
   wrap(async (req, res) => {
@@ -290,6 +319,7 @@ app.post(
         update('shipments', {}, (s) => {
           s[o.key] = rec;
         });
+        rec.platformSync = await syncTracking(o.key);
         results.push({ key: o.key, shipment: rec });
       } catch (e) {
         results.push({ key: o.key, error: e.message });

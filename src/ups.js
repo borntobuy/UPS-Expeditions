@@ -84,11 +84,21 @@ export function addressLines(a) {
   return { lines: out.slice(0, 3), lost: out.slice(3).join(' ') };
 }
 
+/** États-Unis / Porto Rico : ZIP à 5 chiffres (03870-2456 → 03870) */
+function postal(a) {
+  const c = String(a.country || '').toUpperCase();
+  if (c === 'US' || c === 'PR') {
+    const d = String(a.postalCode || '').replace(/\D/g, '');
+    if (d.length >= 5) return d.slice(0, 5);
+  }
+  return cut(a.postalCode, 9);
+}
+
 function address(a) {
   const o = {
     AddressLine: addressLines(a).lines,
     City: cut(a.city, 30),
-    PostalCode: cut(a.postalCode, 9),
+    PostalCode: postal(a),
     CountryCode: String(a.country).toUpperCase(),
   };
   const st = normalizeState(a.state, a.country);

@@ -205,6 +205,14 @@ function cardHtml(o) {
   </article>`;
 }
 
+function syncHtml(o) {
+  if (o.platform !== 'ebay') return '';
+  const ps = o.shipment?.platformSync;
+  if (ps?.ok) return '<span class="tag">Suivi envoyé à eBay</span>';
+  return `${ps?.error ? `<span class="error" title="${esc(ps.error)}">Suivi non envoyé à eBay : ${esc(ps.error)}</span>` : ''}
+    <button class="btn small" data-sync="${esc(o.key)}">Envoyer le suivi à eBay</button>`;
+}
+
 function resultHtml(o) {
   if (o.shipment) {
     const s = o.shipment;
@@ -214,6 +222,7 @@ function resultHtml(o) {
       <span class="trk">${s.tracking.map(esc).join(', ')}</span>
       ${s.labels.map((l) => `<a href="${esc(l.url)}" target="_blank">Étiquette</a>`).join(' ')}
       ${s.invoiceUrl ? `<a href="${esc(s.invoiceUrl)}" target="_blank">Facture commerciale</a>` : ''}
+      ${syncHtml(o)}
       <button class="btn small danger" data-void="${esc(o.key)}">Annuler l'étiquette</button>
     </div>`;
   }
@@ -366,9 +375,23 @@ $('#orders').addEventListener('click', async (e) => {
     const k = t.dataset.toggleAddr;
     state.openAddr.has(k) ? state.openAddr.delete(k) : state.openAddr.add(k);
     render();
+  } else if (t.dataset.sync) {
+    const k = t.dataset.sync;
+    t.disabled = true;
+    try {
+      const r = await api(`/api/sync/${encodeURIComponent(k)}`, { method: 'POST' });
+      const o = byKey(k);
+      o.shipment = { ...o.shipment, platformSync: r };
+      alertMsg(r.ok ? `Suivi envoyé à eBay pour ${esc(o.ref)}.` : esc(r.error), r.ok ? 'ok' : 'err', 5000);
+      renderResult(k);
+    } catch (err) {
+      t.disabled = false;
+      alertMsg(esc(err.message));
+    }
   } else if (t.dataset.void) {
     const k = t.dataset.void;
-    if (!confirm('Annuler cette étiquette auprès d\'UPS ?')) return;
+    const synced = byKey(k)?.shipment?.platformSync?.ok;
+    if (!confirm(`Annuler cette étiquette auprès d'UPS ?${synced ? '\n\nLe numéro de suivi déjà envoyé à eBay n\'est pas retiré : corrigez-le dans eBay.' : ''}`)) return;
     t.disabled = true;
     try {
       await api(`/api/void/${encodeURIComponent(k)}`, { method: 'POST' });
