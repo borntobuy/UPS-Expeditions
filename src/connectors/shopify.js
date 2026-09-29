@@ -163,3 +163,61 @@ export async function fetchOrders(retried = false) {
       };
     });
 }
+
+// ---------- Envoi du numéro de suivi (fulfillmentCreate) ----------
+// Droits nécessaires dans l'app : read_merchant_managed_fulfillment_orders + write_merchant_managed_fulfillment_orders
+
+async function gql(query, variables, retried = false) {
+  const r = await fetch(`https://${s().shop}/admin/api/${s().apiVersion}/graphql.json`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Shopify-Access-Token': await token() },
+    body: JSON.stringify({ query, variables }),
+  });
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.errors) {
+    const msg = Array.isArray(j.errors) ? j.errors.map((e) => e.message).join(' | ') : j.errors || `HTTP ${r.status}`;
+    if (/access denied/i.test(String(msg))) {
+      if (!retried && !s().adminToken && !oauth()) {
+        cached = null;
+        return gql(query, variables, true);
+      }
+      throw new Error(
+        `${msg} — ajoutez à l'app Shopify les droits read_merchant_managed_fulfillment_orders et write_merchant_managed_fulfillment_orders`,
+      );
+    }
+    throw new Error(String(msg));
+  }
+  return j.data;
+}
+
+const FULFILLMENT_ORDERS = `query FO($id: ID!) {
+  order(id: $id) {
+    fulfillmentOrders(first: 10) { nodes { id status lineItems(first: 50) { nodes { remainingQuantity } } } }
+  }
+}`;
+
+const FULFILL = `mutation Ship($fulfillment: FulfillmentInput!) {
+  fulfillmentCreate(fulfillment: $fulfillment) {
+    fulfillment { id status }
+    userErrors { field message }
+  }
+}`;
+
+/** Marque la commande expédiée sur Shopify avec le suivi UPS ; Shopify prévient le client. */
+export async function markShipped(orderLegacyId, tracking) {
+  const data = await gql(FULFILLMENT_ORDERS, { id: `gid://shopify/Order/${orderLegacyId}` });
+  const open = (data?.order?.fulfillmentOrders?.nodes || []).filter(
+    (fo) => ['OPEN', 'IN_PROGRESS'].includes(fo.status) && fo.lineItems.nodes.some((li) => li.remainingQuantity > 0),
+  );
+  if (!open.length) throw new Error('Aucun article restant à expédier sur cette commande Shopify');
+  const res = await gql(FULFILL, {
+    fulfillment: {
+      lineItemsByFulfillmentOrder: open.map((fo) => ({ fulfillmentOrderId: fo.id })), // tout le reste à expédier
+      trackingInfo: { company: 'UPS', number: String(tracking).replace(/\s/g, '') },
+      notifyCustomer: true,
+    },
+  });
+  const errs = res?.fulfillmentCreate?.userErrors || [];
+  if (errs.length) throw new Error(`Shopify : ${errs.map((e) => e.message).join(' | ')}`);
+  return { ok: true };
+}

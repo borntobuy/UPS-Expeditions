@@ -236,16 +236,17 @@ function writeFile(dir, name, base64) {
   return `/labels/${dir}/${name}`;
 }
 
-/** Envoie le numéro de suivi à la plateforme (eBay, Etsy) et mémorise le résultat */
+/** Envoie le numéro de suivi à la plateforme (eBay, Etsy, Shopify) et mémorise le résultat */
 async function syncTracking(key) {
   const rec = load('shipments', {})[key];
-  if (!rec || rec.voided || !['ebay', 'etsy'].includes(rec.platform)) return rec?.platformSync || null;
+  if (!rec || rec.voided || !['ebay', 'etsy', 'shopify'].includes(rec.platform)) return rec?.platformSync || null;
   let result;
   try {
     if (rec.mock || config.mock) result = { ok: true, at: new Date().toISOString(), demo: true };
     else {
       if (rec.platform === 'ebay') await ebay.markShipped(rec.ref, rec.tracking[0], rec.createdAt);
-      else await etsy.markShipped(rec.ref, rec.tracking[0]);
+      else if (rec.platform === 'etsy') await etsy.markShipped(rec.ref, rec.tracking[0]);
+      else await shopify.markShipped(key.split(':')[1], rec.tracking[0]);
       result = { ok: true, at: new Date().toISOString() };
     }
   } catch (e) {

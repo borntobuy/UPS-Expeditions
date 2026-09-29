@@ -60,7 +60,7 @@ Sur https://www.etsy.com/developers/your-apps : *Keystring* et *Shared secret*. 
 Etsy ne transmet pas le téléphone de l'acheteur : l'outil met alors celui de l'expéditeur. Vous pouvez le modifier via « modifier l'adresse ».
 
 ### Shopify
-Depuis le 1er janvier 2026, les nouvelles apps se créent dans le **Dev Dashboard**. Créez-en une, installez-la sur votre boutique avec le droit `read_orders`, et demandez l'accès aux **données client protégées** (nom, adresse, e-mail), sans quoi l'adresse de livraison ne remonte pas. Renseignez `SHOPIFY_SHOP`, `SHOPIFY_CLIENT_ID` et `SHOPIFY_CLIENT_SECRET`.
+Depuis le 1er janvier 2026, les nouvelles apps se créent dans le **Dev Dashboard**. Créez-en une, installez-la sur votre boutique avec les droits `read_orders`, `read_merchant_managed_fulfillment_orders` et `write_merchant_managed_fulfillment_orders` (envoi du numéro de suivi), et demandez l'accès aux **données client protégées** (nom, adresse, e-mail), sans quoi l'adresse de livraison ne remonte pas. Renseignez `SHOPIFY_SHOP`, `SHOPIFY_CLIENT_ID` et `SHOPIFY_CLIENT_SECRET`.
 
 Si vous avez une ancienne app personnalisée avec un jeton `shpat_…`, mettez-le dans `SHOPIFY_ADMIN_TOKEN` à la place.
 

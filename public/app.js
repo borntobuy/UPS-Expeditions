@@ -207,7 +207,7 @@ function cardHtml(o) {
 }
 
 function syncHtml(o) {
-  if (!['ebay', 'etsy'].includes(o.platform)) return '';
+  if (!['ebay', 'etsy', 'shopify'].includes(o.platform)) return '';
   const P = PLAT[o.platform];
   const ps = o.shipment?.platformSync;
   if (ps?.ok) return `<span class="tag">Suivi envoyé à ${P}</span>`;
