@@ -224,7 +224,16 @@ function resultHtml(o) {
   const opts = r.rates
     .map((x) => `<option value="${esc(x.code)}" ${x.code === r.code ? 'selected' : ''}>${esc(x.name)} — ${fmt(x.total, x.currency)}${x.negotiated ? ' (négocié)' : ''}${x.days ? ` · ${x.days} j` : ''}</option>`)
     .join('');
-  return `<select data-service="${esc(o.key)}" aria-label="Service UPS">${opts}</select>
+  const cur = r.rates.find((x) => x.code === r.code);
+  const realW = Number(o.parcel.weight);
+  const volW = (Number(o.parcel.length) * Number(o.parcel.width) * Number(o.parcel.height)) / 5000;
+  const bw = cur?.billingWeight;
+  const weightInfo = bw
+    ? `<span class="tag ${bw > realW * 1.2 ? 'warn' : ''}" title="Poids réel ${realW} kg · volumétrique ${volW.toFixed(1)} kg (L×l×H/5000)">Facturé sur ${bw} ${esc(cur.billingUnit === 'KGS' ? 'kg' : cur.billingUnit)}</span>`
+    : '';
+  const pubInfo = cur?.negotiated && cur.publishedTotal && cur.publishedTotal !== cur.total
+    ? `<span class="muted">public : ${fmt(cur.publishedTotal, cur.currency)}</span>` : '';
+  return `<select data-service="${esc(o.key)}" aria-label="Service UPS">${opts}</select>${weightInfo}${pubInfo}
     <span class="tag ${r.code !== r.defaultCode ? 'warn' : ''}">${r.code !== r.defaultCode ? 'Choix manuel' : esc(r.rule)}</span>
     ${r.warning ? `<span class="tag warn">${esc(r.warning)}</span>` : ''}
     ${err ? `<span class="error">${esc(err)}</span>` : ''}`;

@@ -55,6 +55,7 @@ export function mockRates(o) {
   return table.map(([code, total]) => ({
     code, name: serviceName(code), total: Math.round(total * 100) / 100, currency: 'EUR',
     negotiated: true, publishedTotal: Math.round(total * 1.35 * 100) / 100, days: null,
+    billingWeight: Math.ceil(w * 2) / 2, billingUnit: 'KGS',
   }));
 }
 

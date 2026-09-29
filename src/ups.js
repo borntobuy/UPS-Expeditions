@@ -172,6 +172,9 @@ export async function shopRates(o) {
       negotiated: Boolean(neg),
       publishedTotal: Number(pub?.MonetaryValue),
       days: r.GuaranteedDelivery?.BusinessDaysInTransit || null,
+      // poids retenu par UPS pour le prix (réel ou volumétrique, le plus élevé)
+      billingWeight: Number(r.BillingWeight?.Weight) || null,
+      billingUnit: r.BillingWeight?.UnitOfMeasurement?.Code || '',
     };
   });
 }
