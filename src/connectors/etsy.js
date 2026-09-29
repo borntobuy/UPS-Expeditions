@@ -161,14 +161,18 @@ export async function fetchOrders() {
   }));
 
   // miniature : image principale de l'annonce (getListingImage → url_170x135)
-  const items = orders.flatMap((o) => o.items).filter((i) => i.listingId && i.imageId);
-  await eachLimit(items, 3, async (i) => {
-    i.image = await cachedThumb(`etsy:${i.listingId}:${i.imageId}`, async () => {
-      const img = await get(`/application/listings/${i.listingId}/images/${i.imageId}`);
-      return img.url_170x135 || img.url_75x75 || '';
-    });
+  const pairs = orders.flatMap((o) => o.items.map((i) => [o.key, i])).filter(([, i]) => i.listingId && i.imageId);
+  await eachLimit(pairs, 3, async ([orderKey, i]) => {
+    i.image = await cachedThumb(
+      `etsy:${i.listingId}:${i.imageId}`,
+      async () => {
+        const img = await get(`/application/listings/${i.listingId}/images/${i.imageId}`);
+        return img.url_170x135 || img.url_75x75 || '';
+      },
+      orderKey,
+    );
   });
-  for (const i of items) {
+  for (const [, i] of pairs) {
     delete i.listingId;
     delete i.imageId;
   }

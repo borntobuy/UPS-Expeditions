@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import express from 'express';
 import { config, ROOT } from './config.js';
-import { load, save, update, LABELS_DIR } from './store.js';
+import { load, save, update, LABELS_DIR, purgeThumbs } from './store.js';
 import * as ups from './ups.js';
 import * as ebay from './connectors/ebay.js';
 import * as etsy from './connectors/etsy.js';
@@ -414,6 +414,18 @@ app.post('/api/shutdown', (req, res) => {
   console.log('Arrêt demandé depuis l\'interface.');
   setTimeout(() => process.exit(0), 200);
 });
+
+// Nettoyage des miniatures : au démarrage puis toutes les heures
+const runPurge = () => {
+  try {
+    const n = purgeThumbs();
+    if (n) console.log(`Miniatures supprimées : ${n}`);
+  } catch (e) {
+    console.error(`Nettoyage des miniatures : ${e.message}`);
+  }
+};
+runPurge();
+setInterval(runPurge, 3600_000).unref();
 
 const server = app.listen(config.port, config.host, () => {
   console.log(`\n  UPS Expéditions : ${config.baseUrl}`);

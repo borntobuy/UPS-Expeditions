@@ -30,11 +30,26 @@ export function update(name, fallback, fn) {
   return res;
 }
 
-/** Cache des miniatures (clé -> { url, t }) pour ne pas réinterroger les plateformes à chaque actualisation */
+/** Miniatures : adresses d'images en cache, effacées 3 jours après la création de l'étiquette */
 const THUMB_TTL = 7 * 24 * 3600_000;
-export async function cachedThumb(key, fetcher) {
+export const THUMB_KEEP_AFTER_SHIP = 3 * 24 * 3600_000;
+
+function shippedLongAgo(orderKey, shipments = load('shipments', {})) {
+  const s = shipments[orderKey];
+  return Boolean(s && !s.voided && Date.now() - Date.parse(s.createdAt) > THUMB_KEEP_AFTER_SHIP);
+}
+
+export async function cachedThumb(key, fetcher, orderKey) {
+  if (orderKey && shippedLongAgo(orderKey)) return ''; // étiquette créée il y a plus de 3 jours : plus de miniature
   const c = load('thumbs', {})[key];
-  if (c && Date.now() - c.t < (c.url ? THUMB_TTL * 4 : THUMB_TTL)) return c.url;
+  if (c && Date.now() - c.t < (c.url ? THUMB_TTL * 4 : THUMB_TTL)) {
+    if (orderKey && !(c.orders || []).includes(orderKey)) {
+      update('thumbs', {}, (all) => {
+        all[key] = { ...all[key], orders: [...new Set([...(all[key].orders || []), orderKey])] };
+      });
+    }
+    return c.url;
+  }
   let url = '';
   try {
     url = (await fetcher()) || '';
@@ -42,9 +57,27 @@ export async function cachedThumb(key, fetcher) {
     url = '';
   }
   update('thumbs', {}, (all) => {
-    all[key] = { url, t: Date.now() };
+    all[key] = { url, t: Date.now(), orders: [...new Set([...(all[key]?.orders || []), ...(orderKey ? [orderKey] : [])])] };
   });
   return url;
+}
+
+/** Supprime les miniatures des commandes étiquetées depuis plus de 3 jours (et les entrées orphelines de plus de 30 jours) */
+export function purgeThumbs() {
+  const shipments = load('shipments', {});
+  let removed = 0;
+  update('thumbs', {}, (all) => {
+    for (const [k, v] of Object.entries(all)) {
+      const orders = v.orders || [];
+      const done = orders.length > 0 && orders.every((o) => shippedLongAgo(o, shipments));
+      const orphan = orders.length === 0 && Date.now() - v.t > 30 * 24 * 3600_000;
+      if (done || orphan) {
+        delete all[k];
+        removed++;
+      }
+    }
+  });
+  return removed;
 }
 
 /** Exécute fn sur chaque élément avec au plus `limit` appels simultanés */

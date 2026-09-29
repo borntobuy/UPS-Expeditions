@@ -168,13 +168,15 @@ export async function fetchOrders() {
       };
     });
 
-  const items = orders.flatMap((o) => o.items).filter((i) => i.legacyItemId);
-  await eachLimit(items, 3, async (i) => {
-    i.image = await cachedThumb(`ebay:${i.legacyItemId}:${i.legacyVariationId || ''}`, () =>
-      itemImage(i.legacyItemId, i.legacyVariationId),
+  const pairs = orders.flatMap((o) => o.items.map((i) => [o.key, i])).filter(([, i]) => i.legacyItemId);
+  await eachLimit(pairs, 3, async ([orderKey, i]) => {
+    i.image = await cachedThumb(
+      `ebay:${i.legacyItemId}:${i.legacyVariationId || ''}`,
+      () => itemImage(i.legacyItemId, i.legacyVariationId),
+      orderKey,
     );
   });
-  for (const i of items) {
+  for (const [, i] of pairs) {
     delete i.legacyItemId;
     delete i.legacyVariationId;
   }
