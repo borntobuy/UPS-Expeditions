@@ -182,3 +182,9 @@ dialog h2 { margin: 0 0 10px; font-size: 17px; }
 .pv-warn { margin: 0 0 8px; padding: 8px 8px 8px 26px; background: var(--warn-bg); color: var(--warn); border-radius: 8px; font-size: 13px; }
 .pv details { margin-top: 8px; font-size: 12px; }
 .pv pre { max-height: 260px; overflow: auto; background: var(--bg); padding: 8px; border-radius: 6px; }
+
+/* Miniatures des articles */
+.items { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.thumb img { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); display: block; background: var(--bg); }
+.thumb:hover img { outline: 2px solid var(--focus); }
+.pv-thumb { width: 48px; height: 48px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); }

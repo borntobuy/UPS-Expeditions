@@ -95,7 +95,7 @@ const QUERY = `query UnshippedOrders($q: String!) {
       shippingAddress { name company address1 address2 city provinceCode province zip countryCodeV2 phone }
       currentSubtotalPriceSet { shopMoney { amount currencyCode } }
       lineItems(first: 30) {
-        nodes { title sku quantity originalTotalSet { shopMoney { amount currencyCode } } }
+        nodes { title sku quantity image { url(transform: { maxWidth: 200, maxHeight: 200 }) } originalTotalSet { shopMoney { amount currencyCode } } }
       }
     }
   }
@@ -152,6 +152,7 @@ export async function fetchOrders(retried = false) {
         items: (o.lineItems?.nodes || []).map((li) => ({
           title: li.title,
           sku: li.sku || '',
+          image: li.image?.url || '',
           qty: li.quantity,
           price: Number(li.originalTotalSet?.shopMoney?.amount || 0),
         })),

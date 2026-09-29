@@ -4,31 +4,34 @@ import { serviceName } from './zones.js';
 
 const day = (n) => new Date(Date.now() - n * 86400_000).toISOString();
 
+const demoImg = (label, color) =>
+  `data:image/svg+xml,${encodeURIComponent(`<svg xmlns="http://www.w3.org/2000/svg" width="170" height="135"><rect width="170" height="135" fill="${color}"/><text x="85" y="75" font-family="sans-serif" font-size="16" fill="#fff" text-anchor="middle">${label}</text></svg>`)}`;
+
 export function mockOrders() {
   return [
     {
       key: 'ebay:12-34567-89012', platform: 'ebay', ref: '12-34567-89012', date: day(0), buyer: 'vintagelover_tx',
       address: { name: 'Sarah Miller', company: '', line1: '2201 Oak Lawn Ave', line2: 'Apt 4B', city: 'Dallas', state: 'TX', postalCode: '75219', country: 'US', phone: '2145550187', email: '' },
-      items: [{ title: 'Pair of French brass candlesticks, 19th c.', sku: 'BR-0412', qty: 1, price: 145 }],
+      items: [{ title: 'Pair of French brass candlesticks, 19th c.', sku: 'BR-0412', image: demoImg('Bougeoirs', '#9a7b3c'), qty: 1, price: 145 }],
       goodsValue: 145, currency: 'EUR',
     },
     {
       key: 'etsy:3301245577', platform: 'etsy', ref: '3301245577', date: day(1), buyer: 'Camille Durand',
       address: { name: 'Camille Durand', company: '', line1: '14 rue des Tanneurs', line2: '', city: 'Lyon', state: '', postalCode: '69005', country: 'FR', phone: '', email: 'camille@example.com' },
-      items: [{ title: 'Ancienne boîte à couture en bois', sku: 'BX-221', qty: 1, price: 38 }],
+      items: [{ title: 'Ancienne boîte à couture en bois', sku: 'BX-221', image: demoImg('Boîte', '#7a5230'), qty: 1, price: 38 }],
       goodsValue: 38, currency: 'EUR',
     },
     {
       key: 'shopify:5801123', platform: 'shopify', ref: '#1087', date: day(1), buyer: 'Jonas Weber',
       address: { name: 'Jonas Weber', company: '', line1: 'Kastanienallee 12', line2: '', city: 'Berlin', state: '', postalCode: '10435', country: 'DE', phone: '+4915112345678', email: 'jonas@example.com' },
-      items: [{ title: 'French art deco mirror', sku: 'MI-090', qty: 1, price: 220 }],
+      items: [{ title: 'French art deco mirror', sku: 'MI-090', image: demoImg('Miroir', '#5d6d7e'), qty: 1, price: 220 }],
       goodsValue: 220, currency: 'EUR',
     },
     {
       key: 'etsy:3301249981', platform: 'etsy', ref: '3301249981', date: day(2), buyer: 'Emily Chen',
       address: { name: 'Emily Chen', company: '', line1: '88 Fifth Avenue', line2: '', city: 'New York', state: 'New York', postalCode: '10011', country: 'US', phone: '', email: 'emily@example.com' },
       items: [
-        { title: 'Antique French linen sheet', sku: 'LI-310', qty: 1, price: 89 },
+        { title: 'Antique French linen sheet', sku: 'LI-310', image: demoImg('Drap', '#8e9aaf'), qty: 1, price: 89 },
         { title: 'Monogrammed napkins x6', sku: 'LI-311', qty: 1, price: 42 },
       ],
       goodsValue: 131, currency: 'USD',
@@ -36,7 +39,7 @@ export function mockOrders() {
     {
       key: 'ebay:23-11111-22222', platform: 'ebay', ref: '23-11111-22222', date: day(3), buyer: 'londonfinds',
       address: { name: 'Oliver Hughes', company: '', line1: '5 Camden Passage', line2: '', city: 'London', state: '', postalCode: 'N1 8EA', country: 'GB', phone: '+447700900123', email: '' },
-      items: [{ title: 'Faience plate Quimper', sku: 'FA-077', qty: 1, price: 65 }],
+      items: [{ title: 'Faience plate Quimper', sku: 'FA-077', image: demoImg('Assiette', '#2e6f95'), qty: 1, price: 65 }],
       goodsValue: 65, currency: 'EUR',
     },
   ];

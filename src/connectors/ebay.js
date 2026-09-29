@@ -1,7 +1,7 @@
 // eBay — Sell Fulfillment API (OAuth utilisateur, jeton de rafraîchissement ~18 mois)
 import { randomBytes } from 'node:crypto';
 import { config } from '../config.js';
-import { load, update } from '../store.js';
+import { load, update, cachedThumb, eachLimit } from '../store.js';
 
 const API = 'https://api.ebay.com';
 const SCOPES = ['https://api.ebay.com/oauth/api_scope/sell.fulfillment'];
@@ -98,6 +98,27 @@ async function accessToken() {
   return j.access_token;
 }
 
+// Jeton « application » (client credentials) pour l'API Browse, qui fournit les photos des annonces
+let appTok = null;
+async function appToken() {
+  if (appTok && appTok.exp > Date.now() + 60_000) return appTok.value;
+  const j = await tokenRequest({ grant_type: 'client_credentials', scope: 'https://api.ebay.com/oauth/api_scope' });
+  appTok = { value: j.access_token, exp: Date.now() + j.expires_in * 1000 };
+  return appTok.value;
+}
+
+/** Photo principale via Browse getItemByLegacyId (annonce encore consultable ; sinon pas de miniature) */
+async function itemImage(legacyItemId, legacyVariationId) {
+  const q = new URLSearchParams({ legacy_item_id: legacyItemId });
+  if (legacyVariationId) q.set('legacy_variation_id', legacyVariationId);
+  const r = await fetch(`${API}/buy/browse/v1/item/get_item_by_legacy_id?${q}`, {
+    headers: { Authorization: `Bearer ${await appToken()}` },
+  });
+  if (!r.ok) return '';
+  const j = await r.json().catch(() => ({}));
+  return j.image?.imageUrl || j.thumbnailImages?.[0]?.imageUrl || '';
+}
+
 export async function fetchOrders() {
   const tok = await accessToken();
   const filter = encodeURIComponent('orderfulfillmentstatus:{NOT_STARTED|IN_PROGRESS}');
@@ -107,7 +128,7 @@ export async function fetchOrders() {
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j?.errors?.[0]?.longMessage || j?.errors?.[0]?.message || `HTTP ${r.status}`);
 
-  return (j.orders || [])
+  const orders = (j.orders || [])
     .filter((o) => o.orderPaymentStatus === 'PAID' && o.cancelStatus?.cancelState !== 'CANCELED')
     .map((o) => {
       const st = o.fulfillmentStartInstructions?.[0]?.shippingStep?.shipTo || {};
@@ -133,6 +154,8 @@ export async function fetchOrders() {
         items: (o.lineItems || []).map((li) => ({
           title: li.title,
           sku: li.sku || '',
+          legacyItemId: li.legacyItemId,
+          legacyVariationId: li.legacyVariationId,
           qty: li.quantity,
           price: Number(li.lineItemCost?.value || 0),
         })),
@@ -144,4 +167,16 @@ export async function fetchOrders() {
           o.pricingSummary?.priceSubtotal?.currency || o.pricingSummary?.total?.currency || 'EUR',
       };
     });
+
+  const items = orders.flatMap((o) => o.items).filter((i) => i.legacyItemId);
+  await eachLimit(items, 3, async (i) => {
+    i.image = await cachedThumb(`ebay:${i.legacyItemId}:${i.legacyVariationId || ''}`, () =>
+      itemImage(i.legacyItemId, i.legacyVariationId),
+    );
+  });
+  for (const i of items) {
+    delete i.legacyItemId;
+    delete i.legacyVariationId;
+  }
+  return orders;
 }

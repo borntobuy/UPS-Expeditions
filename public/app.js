@@ -172,7 +172,7 @@ function cardHtml(o) {
       <span class="zone ${o.customs ? 'customs' : ''}">${esc(a.country)} · ${ZONE[o.zone]}${o.customs ? ' · douane' : ''}</span>
       <span class="val">${fmt(o.goodsValue, o.currency)}</span>
     </div>
-    <div class="items">${items}</div>
+    <div class="items">${o.items.filter((i) => i.image).slice(0, 4).map((i) => `<a href="${esc(i.image)}" target="_blank" rel="noopener" class="thumb" title="${esc(i.title)}"><img src="${esc(i.image)}" alt="" loading="lazy"></a>`).join('')}<span>${items}</span></div>
     <div class="addr"><span>${addrLine}</span>${a.phone ? `<span class="muted">☎ ${esc(a.phone)}</span>` : ''}
       ${done ? '' : `<button class="linkbtn" data-toggle-addr="${esc(o.key)}">${addrOpen ? 'fermer' : 'modifier l\'adresse'}</button>`}</div>
     ${addrOpen && !done ? `<div class="grid addr-edit">
@@ -465,7 +465,8 @@ $('#shipBtn').addEventListener('click', async () => {
 });
 
 function previewHtml(o, pv, rate) {
-  const head = `<div class="pv-head"><span class="plat ${o.platform}">${PLAT[o.platform]}</span> <strong>${esc(o.ref)}</strong>
+  const img = o.items.find((i) => i.image)?.image;
+  const head = `<div class="pv-head">${img ? `<img class="pv-thumb" src="${esc(img)}" alt="">` : ''}<span class="plat ${o.platform}">${PLAT[o.platform]}</span> <strong>${esc(o.ref)}</strong>
     <span>${esc(rate.name)}</span><span class="pv-price">${fmt(rate.total, rate.currency)}</span></div>`;
   if (pv.error) return `<section class="pv">${head}<p class="error">${esc(pv.error)}</p></section>`;
   const t = pv.shipTo;

@@ -29,3 +29,30 @@ export function update(name, fallback, fn) {
   save(name, res);
   return res;
 }
+
+/** Cache des miniatures (clé -> { url, t }) pour ne pas réinterroger les plateformes à chaque actualisation */
+const THUMB_TTL = 7 * 24 * 3600_000;
+export async function cachedThumb(key, fetcher) {
+  const c = load('thumbs', {})[key];
+  if (c && Date.now() - c.t < (c.url ? THUMB_TTL * 4 : THUMB_TTL)) return c.url;
+  let url = '';
+  try {
+    url = (await fetcher()) || '';
+  } catch {
+    url = '';
+  }
+  update('thumbs', {}, (all) => {
+    all[key] = { url, t: Date.now() };
+  });
+  return url;
+}
+
+/** Exécute fn sur chaque élément avec au plus `limit` appels simultanés */
+export async function eachLimit(items, limit, fn) {
+  let i = 0;
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, async () => {
+      while (i < items.length) await fn(items[i++]);
+    }),
+  );
+}
