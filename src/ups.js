@@ -29,7 +29,7 @@ async function token() {
   return cachedToken.value;
 }
 
-async function call(method, pathname, body) {
+async function call(method, pathname, body, retried = false) {
   const r = await fetch(`${base()}${pathname}`, {
     method,
     headers: {
@@ -41,7 +41,19 @@ async function call(method, pathname, body) {
     body: body ? JSON.stringify(body) : undefined,
   });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(upsError(j) || `UPS HTTP ${r.status}`);
+  if (!r.ok) {
+    const msg = upsError(j) || `UPS HTTP ${r.status}`;
+    // 250002 : jeton refusé (ex. produits Rating/Shipping ajoutés à l'app après sa création) → on en redemande un
+    if (!retried && /250002/.test(msg)) {
+      cachedToken = null;
+      return call(method, pathname, body, true);
+    }
+    throw new Error(
+      /250002/.test(msg)
+        ? `${msg} — vérifiez sur developer.ups.com que l'app a les produits Rating et Shipping et qu'elle est liée au compte ${config.ups.account}`
+        : msg,
+    );
+  }
   return j;
 }
 
