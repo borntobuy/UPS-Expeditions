@@ -119,11 +119,14 @@ app.get(
     if (config.mock) {
       orders = mockOrders();
     } else {
+      const checked = [];
       const results = await Promise.all(
         Object.entries(PLATFORMS).map(async ([name, m]) => {
           if (!m.configured() || !m.connected()) return [];
           try {
-            return await m.fetchOrders();
+            const list = await m.fetchOrders();
+            checked.push(name);
+            return list;
           } catch (e) {
             errors.push({ platform: name, message: e.message });
             return [];
@@ -131,6 +134,12 @@ app.get(
         }),
       );
       orders = results.flat();
+      // miniatures des commandes traitées (ici ou ailleurs) : supprimées
+      try {
+        purgeThumbs(new Set(orders.map((o) => o.key)), checked);
+      } catch (e) {
+        console.error(`Nettoyage des miniatures : ${e.message}`);
+      }
     }
     const drafts = load('drafts', {});
     const shipments = load('shipments', {});
@@ -415,7 +424,7 @@ app.post('/api/shutdown', (req, res) => {
   setTimeout(() => process.exit(0), 200);
 });
 
-// Nettoyage des miniatures : au démarrage puis toutes les heures
+// Nettoyage des miniatures des commandes étiquetées : au démarrage puis toutes les heures
 const runPurge = () => {
   try {
     const n = purgeThumbs();

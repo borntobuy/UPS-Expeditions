@@ -3,7 +3,7 @@
 // ou OAuth « authorization code » (SHOPIFY_AUTH_MODE=oauth : bouton Connecter, jeton hors ligne conservé)
 import { createHmac, randomBytes, timingSafeEqual } from 'node:crypto';
 import { config } from '../config.js';
-import { load, update, THUMB_KEEP_AFTER_SHIP } from '../store.js';
+import { load, update, shippedInApp } from '../store.js';
 
 const s = () => config.shopify;
 const oauth = () => !s().adminToken && s().authMode === 'oauth';
@@ -127,10 +127,7 @@ export async function fetchOrders(retried = false) {
   }
 
   const shipments = load('shipments', {});
-  const hideThumb = (key) => {
-    const sh = shipments[key];
-    return Boolean(sh && !sh.voided && Date.now() - Date.parse(sh.createdAt) > THUMB_KEEP_AFTER_SHIP);
-  };
+  const hideThumb = (key) => shippedInApp(key, shipments);
   return (j.data?.orders?.nodes || [])
     .filter((o) => o.shippingAddress)
     .map((o) => {
