@@ -229,7 +229,7 @@ export function buildShipmentRequest(o, serviceCode) {
         FormType: '01', // facture commerciale
         InvoiceNumber: cut(String(o.ref).replace(/^#/, ''), 35), // n° de commande de la plateforme
         InvoiceDate: yyyymmdd(),
-        ReasonForExport: 'SALE',
+        ReasonForExport: 'GIFT',
         CurrencyCode: p.currency,
         Contacts: { SoldTo: soldTo },
         Product: [
