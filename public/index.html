@@ -21,6 +21,22 @@
     </div>
   </header>
 
+  <section class="quote">
+    <form id="quoteForm" class="quote-form">
+      <strong>Estimation rapide</strong>
+      <label class="f"><span>Long. cm</span><input name="length" inputmode="decimal" size="4"></label>
+      <label class="f"><span>Larg. cm</span><input name="width" inputmode="decimal" size="4"></label>
+      <label class="f"><span>Haut. cm</span><input name="height" inputmode="decimal" size="4"></label>
+      <label class="f"><span>Poids kg</span><input name="weight" inputmode="decimal" size="4"></label>
+      <label class="f"><span>Code postal</span><input name="postalCode" size="8"></label>
+      <label class="f"><span>Pays (FR, US…)</span><input name="country" size="3" maxlength="2" value="FR" style="text-transform:uppercase"></label>
+      <label class="f"><span>Ville (option)</span><input name="city" size="10"></label>
+      <label class="f"><span>État US/CA (option)</span><input name="state" size="4"></label>
+      <button class="btn primary" id="quoteBtn">Estimer</button>
+    </form>
+    <div id="quoteOut" class="quote-out"></div>
+  </section>
+
   <section id="setup" class="setup" hidden></section>
   <div id="alerts"></div>
 

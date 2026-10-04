@@ -623,3 +623,32 @@ $('#logoutBtn').addEventListener('click', async () => {
     alertMsg(esc(e.message));
   }
 })();
+
+// ---------------- Estimation rapide (sans étiquette) ----------------
+
+$('#quoteForm').addEventListener('submit', async (ev) => {
+  ev.preventDefault();
+  const out = $('#quoteOut');
+  const btn = $('#quoteBtn');
+  const body = Object.fromEntries(new FormData(ev.target).entries());
+  btn.disabled = true;
+  out.innerHTML = '<span class="muted">Interrogation UPS…</span>';
+  try {
+    const r = await api('/api/quote', { method: 'POST', body });
+    const rows = r.rates.map((x) => {
+      const best = x.code === r.code;
+      return `<tr class="${best ? 'best' : ''}"><td>${esc(x.name)}${best ? ' ★' : ''}</td>
+        <td><strong>${fmt(x.total, x.currency)}</strong>${x.negotiated ? ' <span class="muted">(négocié)</span>' : ''}</td>
+        <td class="muted">${x.negotiated && Number.isFinite(x.publishedTotal) ? `public : ${fmt(x.publishedTotal, x.currency)}` : ''}</td>
+        <td class="muted">${x.billingWeight ? `facturé sur ${x.billingWeight} ${esc((x.billingUnit || 'KGS').replace('KGS', 'kg'))}` : ''}</td>
+        <td class="muted">${x.days ? `${x.days} j` : ''}</td></tr>`;
+    }).join('');
+    out.innerHTML = `${r.warning ? `<p class="warn">${esc(r.warning)}</p>` : ''}
+      <table class="quote-table">${rows}</table>
+      <p class="muted">★ = service retenu automatiquement par l'application pour cette destination. Estimation : aucune étiquette créée.</p>`;
+  } catch (e) {
+    out.innerHTML = `<p class="error">${esc(e.message)}</p>`;
+  } finally {
+    btn.disabled = false;
+  }
+});

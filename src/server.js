@@ -206,6 +206,50 @@ app.post(
   }),
 );
 
+// ---------- Estimation libre (aucune étiquette créée) ----------
+
+app.post(
+  '/api/quote',
+  wrap(async (req, res) => {
+    const b = req.body || {};
+    const country = String(b.country || '').trim().toUpperCase();
+    const postalCode = String(b.postalCode || '').trim();
+    const parcel = {
+      length: Number(String(b.length).replace(',', '.')),
+      width: Number(String(b.width).replace(',', '.')),
+      height: Number(String(b.height).replace(',', '.')),
+      weight: Number(String(b.weight).replace(',', '.')),
+      value: Number(String(b.value).replace(',', '.')) || 20,
+      currency: 'EUR',
+      contents: 'Estimation',
+    };
+    const miss = [];
+    for (const [k, l] of [['length', 'longueur'], ['width', 'largeur'], ['height', 'hauteur'], ['weight', 'poids']]) {
+      if (!(parcel[k] > 0)) miss.push(l);
+    }
+    if (!/^[A-Z]{2}$/.test(country)) miss.push('pays (code à 2 lettres, ex. FR, US)');
+    if (!postalCode) miss.push('code postal');
+    if (miss.length) throw new Error(`Champs manquants : ${miss.join(', ')}`);
+    if (!config.mock && !ups.upsConfigured()) throw new Error(`Identifiants UPS manquants dans ${WHERE()}`);
+    const o = {
+      key: 'estimation',
+      ref: 'estimation',
+      parcel,
+      address: {
+        name: 'Estimation',
+        line1: 'Estimation',
+        city: String(b.city || '').trim() || 'Estimation',
+        state: String(b.state || '').trim(),
+        postalCode,
+        country,
+      },
+    };
+    const rates = config.mock ? mockRates(o) : await ups.shopRates(o);
+    rates.sort((a, c) => a.total - c.total);
+    res.json({ rates, ...(pickService(rates, country) || {}) });
+  }),
+);
+
 // ---------- Aperçu avant création (aucun appel UPS) ----------
 
 app.post(
