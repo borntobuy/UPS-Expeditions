@@ -32,6 +32,7 @@ export function update(name, fallback, fn) {
 
 /** Miniatures : adresses d'images en cache, supprimées dès que la commande est traitée */
 const THUMB_TTL = 7 * 24 * 3600_000;
+const THUMB_MISS_TTL = 3600_000; // échec : on réessaie au bout d'1 h
 
 /** Commande étiquetée dans l'application (étiquette non annulée) */
 export function shippedInApp(orderKey, shipments = load('shipments', {})) {
@@ -42,7 +43,7 @@ export function shippedInApp(orderKey, shipments = load('shipments', {})) {
 export async function cachedThumb(key, fetcher, orderKey) {
   if (orderKey && shippedInApp(orderKey)) return ''; // déjà traitée : pas de miniature
   const c = load('thumbs', {})[key];
-  if (c && Date.now() - c.t < (c.url ? THUMB_TTL * 4 : THUMB_TTL)) {
+  if (c && Date.now() - c.t < (c.url ? THUMB_TTL * 4 : THUMB_MISS_TTL)) {
     if (orderKey && !(c.orders || []).includes(orderKey)) {
       update('thumbs', {}, (all) => {
         all[key] = { ...all[key], orders: [...new Set([...(all[key].orders || []), orderKey])] };
