@@ -105,6 +105,7 @@ main { padding: 0 20px; }
 .plat.ebay { background: #0064d2; }
 .plat.etsy { background: #d5641c; }
 .plat.shopify { background: #5e8e3e; }
+.plat.manual { background: #6b5b95; }
 .ref { font-weight: 700; }
 .zone { font-size: 11px; padding: 2px 7px; border-radius: 5px; border: 1px solid var(--line); }
 .zone.customs { background: var(--warn-bg); color: var(--warn); border-color: transparent; }

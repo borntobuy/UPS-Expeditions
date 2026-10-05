@@ -1,7 +1,7 @@
 /* UPS Expéditions — interface */
 const $ = (s, el = document) => el.querySelector(s);
 const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`);
-const PLAT = { ebay: 'eBay', etsy: 'Etsy', shopify: 'Shopify' };
+const PLAT = { ebay: 'eBay', etsy: 'Etsy', shopify: 'Shopify', manual: 'Manuel' };
 const ZONE = { FR: 'France', EU: 'Europe', INTL: 'International' };
 
 const state = {
@@ -178,6 +178,7 @@ function cardHtml(o) {
       <span class="muted">${fdate(o.date)} · ${esc(o.buyer)}</span>
       <span class="zone ${o.customs ? 'customs' : ''}">${esc(a.country)} · ${ZONE[o.zone]}${o.customs ? ' · douane' : ''}</span>
       <span class="val">${fmt(o.goodsValue, o.currency)}</span>
+      ${o.manual && !done ? `<button class="linkbtn" data-del-manual="${esc(o.key)}" title="Supprimer cet envoi manuel">supprimer</button>` : ''}
     </div>
     <div class="items">${o.items.filter((i) => i.image).slice(0, 4).map((i) => `<a href="${esc(i.image)}" target="_blank" rel="noopener" class="thumb" title="${esc(i.title)}"><img src="${esc(i.image)}" alt="" loading="lazy"></a>`).join('')}<span>${items}</span></div>
     <div class="addr"><span>${addrLine}</span>${a.phone ? `<span class="muted">☎ ${esc(a.phone)}</span>` : ''}
@@ -626,6 +627,47 @@ $('#logoutBtn').addEventListener('click', async () => {
 
 // ---------------- Estimation rapide (sans étiquette) ----------------
 
+let lastQuote = null;
+
+// « Créer l'envoi » : crée une commande manuelle pré-remplie (dimensions, poids, destination, service choisi)
+$('#quoteOut').addEventListener('click', async (ev) => {
+  const btn = ev.target.closest('[data-create]');
+  if (!btn || !lastQuote) return;
+  const { body, r } = lastQuote;
+  btn.disabled = true;
+  try {
+    const { key } = await api('/api/manual', {
+      method: 'POST',
+      body: {
+        address: { postalCode: body.postalCode, country: body.country, city: body.city, state: body.state },
+        parcel: { length: body.length, width: body.width, height: body.height, weight: body.weight, value: body.value },
+      },
+    });
+    state.rates[key] = { rates: r.rates, code: btn.dataset.create, defaultCode: r.code, rule: r.rule, warning: r.warning };
+    state.openAddr.add(key);
+    state.sel.add(key);
+    $('#hideShipped').checked = true;
+    await loadOrders();
+    document.querySelector(`[data-card="${CSS.escape(key)}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    alertMsg('Envoi créé dans la liste : complétez le destinataire, le contenu et la valeur, puis « Valider et générer ».', 'ok', 8000);
+  } catch (e) {
+    alertMsg(esc(e.message));
+    btn.disabled = false;
+  }
+});
+
+$('#orders').addEventListener('click', async (ev) => {
+  const b = ev.target.closest('[data-del-manual]');
+  if (!b) return;
+  try {
+    await api(`/api/manual/${encodeURIComponent(b.dataset.delManual)}`, { method: 'DELETE' });
+    state.sel.delete(b.dataset.delManual);
+    await loadOrders();
+  } catch (e) {
+    alertMsg(esc(e.message));
+  }
+});
+
 $('#quoteForm').addEventListener('submit', async (ev) => {
   ev.preventDefault();
   const out = $('#quoteOut');
@@ -635,13 +677,15 @@ $('#quoteForm').addEventListener('submit', async (ev) => {
   out.innerHTML = '<span class="muted">Interrogation UPS…</span>';
   try {
     const r = await api('/api/quote', { method: 'POST', body });
+    lastQuote = { body, r };
     const rows = r.rates.map((x) => {
       const best = x.code === r.code;
       return `<tr class="${best ? 'best' : ''}"><td>${esc(x.name)}${best ? ' ★' : ''}</td>
         <td><strong>${fmt(x.total, x.currency)}</strong>${x.negotiated ? ' <span class="muted">(négocié)</span>' : ''}</td>
         <td class="muted">${x.negotiated && Number.isFinite(x.publishedTotal) ? `public : ${fmt(x.publishedTotal, x.currency)}` : ''}</td>
         <td class="muted">${x.billingWeight ? `facturé sur ${x.billingWeight} ${esc((x.billingUnit || 'KGS').replace('KGS', 'kg'))}` : ''}</td>
-        <td class="muted">${x.days ? `${x.days} j` : ''}</td></tr>`;
+        <td class="muted">${x.days ? `${x.days} j` : ''}</td>
+        <td><button type="button" class="btn small" data-create="${esc(x.code)}">Créer l'envoi</button></td></tr>`;
     }).join('');
     out.innerHTML = `${r.warning ? `<p class="warn">${esc(r.warning)}</p>` : ''}
       <table class="quote-table">${rows}</table>

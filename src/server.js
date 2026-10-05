@@ -143,12 +143,13 @@ app.get(
     }
     const drafts = load('drafts', {});
     const shipments = load('shipments', {});
+    orders = [...orders, ...Object.values(load('manual', {}))];  // + envois créés à la main (hors plateformes)
     orders = orders
       .map((o) => ({
         ...o,
         zone: zoneOf(o.address.country),
         customs: needsCustoms(o.address.country, o.address.postalCode),
-        draft: drafts[o.key] || null,
+        draft: drafts[o.key] || o.draft || null,
         shipment: shipments[o.key] && !shipments[o.key].voided ? shipments[o.key] : null,
       }))
       .sort((a, b) => String(b.date).localeCompare(String(a.date)));
@@ -249,6 +250,55 @@ app.post(
     res.json({ rates, ...(pickService(rates, country) || {}) });
   }),
 );
+
+// ---------- Envoi manuel (hors plateformes), créé depuis l'estimation ----------
+
+app.post(
+  '/api/manual',
+  wrap(async (req, res) => {
+    const b = req.body || {};
+    const a = b.address || {};
+    const p = b.parcel || {};
+    const n = (v) => Number(String(v ?? '').replace(',', '.')) || '';
+    const stamp = Date.now();
+    const key = `manual:${stamp}`;
+    const order = {
+      key,
+      platform: 'manual',
+      ref: `MAN-${new Date().toISOString().slice(2, 10).replace(/-/g, '')}-${String(stamp).slice(-4)}`,
+      date: new Date().toISOString(),
+      buyer: '',
+      address: {
+        name: '', company: '', line1: '', line2: '', phone: '', email: '',
+        city: String(a.city || '').trim(), state: String(a.state || '').trim(),
+        postalCode: String(a.postalCode || '').trim(), country: String(a.country || '').trim().toUpperCase(),
+      },
+      items: [],
+      goodsValue: n(p.value),
+      currency: 'EUR',
+      manual: true,
+      draft: { parcel: { length: n(p.length), width: n(p.width), height: n(p.height), weight: n(p.weight), value: n(p.value), currency: 'EUR' } },
+    };
+    update('manual', {}, (m) => {
+      m[key] = order;
+    });
+    res.json({ key });
+  }),
+);
+
+app.delete('/api/manual/:key', (req, res) => {
+  const key = req.params.key;
+  if (load('shipments', {})[key] && !load('shipments', {})[key].voided) {
+    return res.status(400).json({ error: 'Un bordereau existe : annulez-le avant de supprimer' });
+  }
+  update('manual', {}, (m) => {
+    delete m[key];
+  });
+  update('drafts', {}, (d) => {
+    delete d[key];
+  });
+  res.json({ ok: true });
+});
 
 // ---------- Aperçu avant création (aucun appel UPS) ----------
 
