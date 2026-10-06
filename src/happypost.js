@@ -61,6 +61,10 @@ export async function buildHappyPostXlsx(orders) {
   const problems = [];
   const s = config.shipper;
   const [sn, sp] = splitName(s.name);
+  // colonnes jaunes du modèle = obligatoires chez Happy Post : on vérifie l'expéditeur avant de générer
+  const need = { SHIPPER_NAME: s.name, SHIPPER_ADDRESS1: s.line1, SHIPPER_CITY: s.city, SHIPPER_POSTAL_CODE: s.postalCode, SHIPPER_EMAIL: s.email, SHIPPER_PHONE: s.phone };
+  const lacking = Object.entries(need).filter(([, v]) => !String(v || '').trim()).map(([k]) => k);
+  if (lacking.length) problems.push(`Expéditeur incomplet (champ obligatoire Happy Post) : renseignez ${lacking.join(', ')}`);
 
   orders.forEach((o, idx) => {
     const r = ws.getRow(FIRST_ROW + idx);
@@ -81,13 +85,14 @@ export async function buildHappyPostXlsx(orders) {
     set('G', String(o.ref).replace(/^#/, ''));
     set('H', 'Autre');
     // expéditeur
-    set('I', sn); set('J', sp); set('K', s.company);
+    set('I', sn); set('J', sp || sn); set('K', s.company || s.name);
     set('L', s.line1); set('M', s.line2); set('N', s.postalCode); set('O', s.city);
     set('Q', s.email); set('R', s.phone);
     // destinataire
-    set('S', n); set('T', pn); set('U', a.company);
+    // champs obligatoires chez Happy Post : repli sur le nom (société), l'e-mail et le téléphone de l'expéditeur si la plateforme ne les fournit pas
+    set('S', n); set('T', pn || n); set('U', a.company || a.name);
     set('V', a.line1); set('W', a.line2); set('X', us5(a.country, a.postalCode)); set('Y', a.city); set('Z', a.state);
-    set('AA', a.email); set('AB', a.phone);
+    set('AA', a.email || s.email); set('AB', a.phone || s.phone);
     // douane (un article récapitulatif) : seulement hors UE
     if (needsCustoms(a.country, a.postalCode)) {
       set('AC', String(p.contents).slice(0, 100));
