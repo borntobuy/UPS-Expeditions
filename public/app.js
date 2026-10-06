@@ -154,7 +154,8 @@ async function loadOrders() {
 }
 
 const byKey = (k) => state.orders.find((o) => o.key === k);
-const visible = () => state.orders.filter((o) => !($('#hideShipped').checked && o.shipment && !state.sessionShipped.includes(o.key)));
+const isDone = (o) => Boolean(o.shipment || o.handled);
+const visible = () => state.orders.filter((o) => !($('#hideShipped').checked && isDone(o) && !state.sessionShipped.includes(o.key)));
 
 function field(key, name, label, value, attrs = '', cls = '') {
   return `<label class="f ${cls}"><span>${label}</span><input data-k="${esc(key)}" data-p="${name}" value="${esc(value)}" ${attrs}></label>`;
@@ -164,7 +165,7 @@ function cardHtml(o) {
   const p = o.parcel;
   const a = o.address;
   const presets = state.status?.presets || [];
-  const done = Boolean(o.shipment);
+  const done = isDone(o);
   const items = o.items.map((i) => `${i.qty > 1 ? `${i.qty}× ` : ''}${esc(i.title)}`).join(' · ');
   const addrLine = [a.name, a.line1, a.line2, `${a.postalCode} ${a.city}`, a.state, a.country].filter((x) => String(x).trim()).map(esc).join(', ');
   const addrOpen = state.openAddr.has(o.key);
@@ -217,6 +218,11 @@ function syncHtml(o) {
 }
 
 function resultHtml(o) {
+  if (o.handled && !o.shipment) {
+    return `<div class="shipped"><span class="tag">Traitée ailleurs</span>
+      <span class="muted">${esc(o.handled.note || '')} · ${fdate(o.handled.at)}</span>
+      <button class="btn small" data-unhandle="${esc(o.key)}">Rétablir</button></div>`;
+  }
   if (o.shipment) {
     const s = o.shipment;
     return `<div class="shipped">
@@ -256,7 +262,7 @@ function render() {
   $('#orders').innerHTML = list.length
     ? list.map(cardHtml).join('')
     : `<p class="muted pad">${state.orders.length ? 'Toutes les commandes affichées sont expédiées.' : 'Aucune commande à expédier.'}</p>`;
-  const pending = state.orders.filter((o) => !o.shipment).length;
+  const pending = state.orders.filter((o) => !isDone(o)).length;
   $('#count').textContent = `${pending} à expédier · ${state.orders.length - pending} déjà expédiée(s)`;
   updateBar();
 }
@@ -267,7 +273,7 @@ function renderResult(key) {
 }
 
 function selectedPending() {
-  return state.orders.filter((o) => state.sel.has(o.key) && !o.shipment);
+  return state.orders.filter((o) => state.sel.has(o.key) && !isDone(o));
 }
 
 function updateBar() {
@@ -285,12 +291,13 @@ function updateBar() {
     : '';
   $('#ratesBtn').disabled = sel.length === 0;
   $('#hpBtn').disabled = sel.length === 0;
+  $('#doneBtn').disabled = sel.length === 0;
   $('#shipBtn').disabled = ready.length === 0;
   $('#shipBtn').textContent = ready.length ? `Valider et générer (${ready.length})` : 'Valider et générer';
   const printable = printKeys();
   $('#printBtn').disabled = printable.length === 0;
   $('#printBtn').textContent = printable.length ? `Imprimer (${printable.length})` : 'Imprimer';
-  $('#selectAll').checked = state.orders.some((o) => !o.shipment) && state.orders.filter((o) => !o.shipment).every((o) => state.sel.has(o.key));
+  $('#selectAll').checked = state.orders.some((o) => !isDone(o)) && state.orders.filter((o) => !isDone(o)).every((o) => state.sel.has(o.key));
 }
 
 function printKeys() {
@@ -413,7 +420,7 @@ $('#orders').addEventListener('click', async (e) => {
 });
 
 $('#selectAll').addEventListener('change', (e) => {
-  for (const o of state.orders) if (!o.shipment) e.target.checked ? state.sel.add(o.key) : state.sel.delete(o.key);
+  for (const o of state.orders) if (!isDone(o)) e.target.checked ? state.sel.add(o.key) : state.sel.delete(o.key);
   render();
 });
 $('#hideShipped').addEventListener('change', render);
@@ -723,5 +730,31 @@ $('#hpBtn').addEventListener('click', async () => {
     alertMsg(esc(e.message));
   } finally {
     updateBar();
+  }
+});
+
+// ---------------- Marquer comme traitée (expédiée avec une autre plateforme) ----------------
+
+$('#doneBtn').addEventListener('click', async () => {
+  const sel = selectedPending();
+  if (!sel.length) return;
+  if (!confirm(`Marquer ${sel.length} commande(s) comme traitée(s) ailleurs ? Elles seront masquées de la liste (réversible via « Rétablir »).`)) return;
+  try {
+    await api('/api/handled', { method: 'POST', body: { keys: sel.map((o) => o.key) } });
+    for (const o of sel) state.sel.delete(o.key);
+    await loadOrders();
+  } catch (e) {
+    alertMsg(esc(e.message));
+  }
+});
+
+$('#orders').addEventListener('click', async (ev) => {
+  const b = ev.target.closest('[data-unhandle]');
+  if (!b) return;
+  try {
+    await api(`/api/handled/${encodeURIComponent(b.dataset.unhandle)}`, { method: 'DELETE' });
+    await loadOrders();
+  } catch (e) {
+    alertMsg(esc(e.message));
   }
 });

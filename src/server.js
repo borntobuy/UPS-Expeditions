@@ -152,6 +152,7 @@ app.get(
         customs: needsCustoms(o.address.country, o.address.postalCode),
         draft: drafts[o.key] || o.draft || null,
         shipment: shipments[o.key] && !shipments[o.key].voided ? shipments[o.key] : null,
+        handled: load('handled', {})[o.key] || null,
       }))
       .sort((a, b) => String(b.date).localeCompare(String(a.date)));
     res.json({ orders, errors });
@@ -161,6 +162,27 @@ app.get(
 app.put('/api/drafts/:key', (req, res) => {
   update('drafts', {}, (d) => {
     d[req.params.key] = { ...req.body, savedAt: new Date().toISOString() };
+  });
+  res.json({ ok: true });
+});
+
+// ---------- Commandes traitées ailleurs (expédiées avec une autre plateforme) ----------
+
+app.post('/api/handled', (req, res) => {
+  const keys = (Array.isArray(req.body?.keys) ? req.body.keys : []).map(String).filter(Boolean);
+  const note = String(req.body?.note || 'Expédiée avec une autre plateforme').slice(0, 100);
+  update('handled', {}, (h) => {
+    for (const k of keys) h[k] = { at: new Date().toISOString(), note };
+  });
+  try {
+    purgeThumbs(null, []);
+  } catch {}
+  res.json({ ok: true, count: keys.length });
+});
+
+app.delete('/api/handled/:key', (req, res) => {
+  update('handled', {}, (h) => {
+    delete h[req.params.key];
   });
   res.json({ ok: true });
 });

@@ -35,9 +35,10 @@ const THUMB_TTL = 7 * 24 * 3600_000;
 const THUMB_MISS_TTL = 3600_000; // échec : on réessaie au bout d'1 h
 
 /** Commande étiquetée dans l'application (étiquette non annulée) */
-export function shippedInApp(orderKey, shipments = load('shipments', {})) {
+export function shippedInApp(orderKey, shipments = load('shipments', {}), handled = load('handled', {})) {
   const s = shipments[orderKey];
-  return Boolean(s && !s.voided);
+  // étiquetée ici, ou marquée « traitée » à la main (expédiée avec une autre plateforme)
+  return Boolean((s && !s.voided) || handled[orderKey]);
 }
 
 export async function cachedThumb(key, fetcher, orderKey) {
@@ -73,8 +74,9 @@ export async function cachedThumb(key, fetcher, orderKey) {
  */
 export function purgeThumbs(pending = null, checked = []) {
   const shipments = load('shipments', {});
+  const manual = load('handled', {});
   const handled = (key) =>
-    shippedInApp(key, shipments) || (pending && checked.includes(key.split(':')[0]) && !pending.has(key));
+    shippedInApp(key, shipments, manual) || (pending && checked.includes(key.split(':')[0]) && !pending.has(key));
   let removed = 0;
   update('thumbs', {}, (all) => {
     for (const [k, v] of Object.entries(all)) {
