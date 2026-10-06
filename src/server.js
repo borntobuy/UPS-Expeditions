@@ -8,6 +8,7 @@ import * as ebay from './connectors/ebay.js';
 import * as etsy from './connectors/etsy.js';
 import * as shopify from './connectors/shopify.js';
 import { installAuth } from './auth.js';
+import { buildHappyPostXlsx } from './happypost.js';
 import { mockOrders, mockRates, mockShipment } from './mock.js';
 import { needsCustoms, pickService, serviceName, zoneOf } from './zones.js';
 
@@ -299,6 +300,25 @@ app.delete('/api/manual/:key', (req, res) => {
   });
   res.json({ ok: true });
 });
+
+// ---------- Export Happy Post (fichier d'import de colis, aucun appel à un transporteur) ----------
+
+app.post(
+  '/api/export/happypost',
+  wrap(async (req, res) => {
+    const list = Array.isArray(req.body?.orders) ? req.body.orders : [];
+    if (!list.length) throw new Error('Aucune commande sélectionnée');
+    for (const o of list) {
+      const missing = checkOrder(o);
+      if (missing.length) throw new Error(`${o?.ref || o?.key} : champs manquants : ${missing.join(', ')}`);
+    }
+    const { buffer, problems } = await buildHappyPostXlsx(list);
+    if (problems.length) throw new Error(problems.join(' | '));
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="happypost-${new Date().toISOString().slice(0, 10)}.xlsx"`);
+    res.send(buffer);
+  }),
+);
 
 // ---------- Aperçu avant création (aucun appel UPS) ----------
 

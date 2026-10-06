@@ -284,6 +284,7 @@ function updateBar() {
     ? `Estimation : ${Object.entries(sums).map(([c, v]) => fmt(v, c)).join(' + ')} (${ready.length} tarifée${ready.length > 1 ? 's' : ''})`
     : '';
   $('#ratesBtn').disabled = sel.length === 0;
+  $('#hpBtn').disabled = sel.length === 0;
   $('#shipBtn').disabled = ready.length === 0;
   $('#shipBtn').textContent = ready.length ? `Valider et générer (${ready.length})` : 'Valider et générer';
   const printable = printKeys();
@@ -694,5 +695,33 @@ $('#quoteForm').addEventListener('submit', async (ev) => {
     out.innerHTML = `<p class="error">${esc(e.message)}</p>`;
   } finally {
     btn.disabled = false;
+  }
+});
+
+// ---------------- Export Happy Post (Excel d'import de colis) ----------------
+
+$('#hpBtn').addEventListener('click', async () => {
+  const sel = selectedPending();
+  const ready = sel.filter((o) => !markMissing(o));
+  if (ready.length < sel.length) alertMsg(`${sel.length - ready.length} commande(s) incomplète(s) : champs en rouge.`, 'err', 5000);
+  if (!ready.length) return;
+  const btn = $('#hpBtn');
+  btn.disabled = true;
+  try {
+    const r = await fetch('/api/export/happypost', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orders: ready.map(payload) }),
+    });
+    if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || `Erreur ${r.status}`);
+    const url = URL.createObjectURL(await r.blob());
+    const a = Object.assign(document.createElement('a'), { href: url, download: `happypost-${new Date().toISOString().slice(0, 10)}.xlsx` });
+    a.click();
+    URL.revokeObjectURL(url);
+    alertMsg(`Fichier Happy Post téléchargé (${ready.length} colis) : à importer dans Happy Post.`, 'ok', 6000);
+  } catch (e) {
+    alertMsg(esc(e.message));
+  } finally {
+    updateBar();
   }
 });
