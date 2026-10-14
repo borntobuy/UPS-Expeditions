@@ -125,7 +125,7 @@ function shipToParty(o) {
     Name: cut(a.company || a.name, 35),
     AttentionName: cut(a.name, 35),
     Phone: { Number: digits(a.phone || config.shipper.phone) },
-    Address: { ...address(a), ResidentialAddressIndicator: '' },
+    Address: { ...address(a), ...(a.residential === false ? {} : { ResidentialAddressIndicator: '' }) },
   };
   if (a.email) p.EMailAddress = cut(a.email, 50);
   return p;

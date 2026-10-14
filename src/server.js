@@ -266,6 +266,7 @@ app.post(
         state: String(b.state || '').trim(),
         postalCode,
         country,
+        residential: !(b.pro === 'on' || b.pro === true),
       },
     };
     const rates = config.mock ? mockRates(o) : await ups.shopRates(o);
