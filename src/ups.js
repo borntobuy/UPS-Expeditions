@@ -147,12 +147,19 @@ const weight = (parcel) => ({
 
 const moneyVal = (v) => Number(v).toFixed(2);
 
+/** N° de TVA de la plateforme par pays de destination (fourni par le vendeur) */
+const PLATFORM_VAT_ID = { etsy: { GB: "Etsy's UK VAT number, 370 6004 28" } };
+const vatId = (o) => PLATFORM_VAT_ID[o.platform]?.[String(o.address.country).toUpperCase()] || '';
+
 /** TVA déjà encaissée par la plateforme (Etsy) : mention pour la douane (envois avec douane uniquement) */
 export function vatNote(o) {
   const v = Number(o.vat);
   if (!(v > 0) || !needsCustoms(o.address.country, o.address.postalCode)) return '';
-  return `VAT/TAX ALREADY PAID BY BUYER AT CHECKOUT (COLLECTED BY ${String(o.platform || 'MARKETPLACE').toUpperCase()}): ${moneyVal(v)} ${o.currency || ''}. NO IMPORT VAT TO BE CHARGED AGAIN. Order ${String(o.ref).replace(/^#/, '')}`.replace(/\s+/g, ' ').trim();
+  return `VAT PAID AT CHECKOUT, COLLECTED BY ${String(o.platform || 'MARKETPLACE').toUpperCase()}: ${moneyVal(v)} ${o.currency || ''}. ${vatId(o)}. NO IMPORT VAT TO BE CHARGED AGAIN. Order ${String(o.ref).replace(/^#/, '')}`.replace(/\s+\./g, '.').replace(/\s+/g, ' ').trim();
 }
+
+/** Texte court imprimé sur l'étiquette (35 car. max) */
+const vatLabelRef = (o) => cut(vatId(o).replace("'s", '').replace(' number,', '').toUpperCase() || 'VAT PAID BY BUYER', 35);
 const hsCode = (p) => String(p.hsCode ?? '').replace(/[^0-9A-Za-z]/g, '');
 
 // ---------- Tarifs ----------
@@ -231,7 +238,7 @@ export function buildShipmentRequest(o, serviceCode) {
     // n° de commande de la plateforme (référence niveau envoi : autorisée hors US→US / PR→PR)
     ReferenceNumber: [
       { Value: cut(String(o.ref).replace(/^#/, ''), 35) },
-      ...(vatNote(o) ? [{ Value: 'VAT PAID BY BUYER' }] : []), // 2e référence, imprimée sur l'étiquette (à vérifier à la 1re étiquette)
+      ...(vatNote(o) ? [{ Value: vatLabelRef(o) }] : []), // 2e référence, imprimée sur l'étiquette (à vérifier à la 1re étiquette)
     ],
     // pas de DeclaredValue : aucune valeur déclarée (assurance) sur le colis
     Package: [
