@@ -447,7 +447,7 @@ function markMissing(o) {
   return bad || !okC || !okH;
 }
 
-const payload = (o) => ({ key: o.key, platform: o.platform, ref: o.ref, address: o.address, parcel: o.parcel });
+const payload = (o) => ({ key: o.key, platform: o.platform, ref: o.ref, address: o.address, parcel: o.parcel, vat: o.vat, currency: o.currency });
 
 $('#ratesBtn').addEventListener('click', async () => {
   const sel = selectedPending();
