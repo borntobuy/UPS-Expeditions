@@ -162,7 +162,7 @@ const vatId = (o) => vatEntry(o)?.text || '';
 export function vatNote(o) {
   const v = Number(o.vat);
   if (!(v > 0) || !needsCustoms(o.address.country, o.address.postalCode)) return '';
-  return `VAT PAID AT CHECKOUT, COLLECTED BY ${String(o.platform || 'MARKETPLACE').toUpperCase()}: ${moneyVal(v)} ${o.currency || ''}. ${vatId(o)}. NO IMPORT VAT TO BE CHARGED AGAIN. Order ${String(o.ref).replace(/^#/, '')}`.replace(/\s+\./g, '.').replace(/\s+/g, ' ').trim();
+  return `VAT PAID AT CHECKOUT, COLLECTED BY ${String(o.platform || 'MARKETPLACE').toUpperCase()}: ${moneyVal(v)} ${o.currency || ''}.${vatId(o) ? ` ${vatId(o)}.` : ''} NO IMPORT VAT TO BE CHARGED AGAIN. Order ${String(o.ref).replace(/^#/, '')}`.replace(/\s+\./g, '.').replace(/\s+/g, ' ').trim();
 }
 
 /** Texte court imprimé sur l'étiquette (35 car. max) */
