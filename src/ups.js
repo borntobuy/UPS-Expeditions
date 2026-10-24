@@ -161,7 +161,8 @@ const vatId = (o) => vatEntry(o)?.text || '';
 /** TVA déjà encaissée par la plateforme (Etsy) : mention pour la douane (envois avec douane uniquement) */
 export function vatNote(o) {
   const v = Number(o.vat);
-  if (!(v > 0) || !needsCustoms(o.address.country, o.address.postalCode)) return '';
+  // seulement là où Etsy encaisse la TVA à l'import (pas la taxe de vente US, par ex.)
+  if (!(v > 0) || !vatEntry(o) || !needsCustoms(o.address.country, o.address.postalCode)) return '';
   return `VAT PAID AT CHECKOUT, COLLECTED BY ${String(o.platform || 'MARKETPLACE').toUpperCase()}: ${moneyVal(v)} ${o.currency || ''}.${vatId(o) ? ` ${vatId(o)}.` : ''} NO IMPORT VAT TO BE CHARGED AGAIN. Order ${String(o.ref).replace(/^#/, '')}`.replace(/\s+\./g, '.').replace(/\s+/g, ' ').trim();
 }
 
@@ -330,6 +331,7 @@ export function previewShipment(o, serviceCode) {
     },
     shipper: { name: sh.Shipper.Name, business: Boolean(config.shipper.company) },
     reference: sh.ReferenceNumber?.[0]?.Value || '',
+    references: (sh.ReferenceNumber || []).map((r) => r.Value),
     declaredValue: sh.Package[0].PackageServiceOptions?.DeclaredValue ? 'oui' : '',
     package: {
       dims: `${sh.Package[0].Dimensions.Length} × ${sh.Package[0].Dimensions.Width} × ${sh.Package[0].Dimensions.Height} cm`,

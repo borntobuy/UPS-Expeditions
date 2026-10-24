@@ -202,3 +202,4 @@ dialog h2 { margin: 0 0 10px; font-size: 17px; }
 
 .vatpaid { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 5px; background: #e3f4e8; color: #17613a; }
 .vatrow td { background: #e3f4e8; color: #17613a; }
+.vatbanner { background: #e3f4e8; color: #17613a; padding: 8px 12px; border-radius: 6px; margin: 8px 0; font-size: 13px; }

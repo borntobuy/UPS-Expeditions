@@ -150,6 +150,7 @@ app.get(
         ...o,
         zone: zoneOf(o.address.country),
         customs: needsCustoms(o.address.country, o.address.postalCode),
+        vatNote: ups.vatNote(o),
         draft: drafts[o.key] || o.draft || null,
         shipment: shipments[o.key] && !shipments[o.key].voided ? shipments[o.key] : null,
         handled: load('handled', {})[o.key] || null,

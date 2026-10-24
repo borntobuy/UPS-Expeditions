@@ -178,7 +178,7 @@ function cardHtml(o) {
       <span class="ref">${esc(o.ref)}</span>
       <span class="muted">${fdate(o.date)} · ${esc(o.buyer)}</span>
       <span class="zone ${o.customs ? 'customs' : ''}">${esc(a.country)} · ${ZONE[o.zone]}${o.customs ? ' · douane' : ''}</span>
-      ${o.vat > 0 && o.customs ? `<span class="vatpaid" title="TVA déjà encaissée par ${esc(PLAT[o.platform])} : mention ajoutée à la facture commerciale et à l'étiquette">TVA payée : ${fmt(o.vat, o.currency)}</span>` : ''}
+      ${o.vatNote ? `<span class="vatpaid" title="TVA déjà encaissée par ${esc(PLAT[o.platform])} : mention ajoutée à la facture commerciale et à l'étiquette">TVA payée : ${fmt(o.vat, o.currency)}</span>` : ''}
       <span class="val">${fmt(o.goodsValue, o.currency)}</span>
       ${o.manual && !done ? `<button class="linkbtn" data-del-manual="${esc(o.key)}" title="Supprimer cet envoi manuel">supprimer</button>` : ''}
     </div>
@@ -527,6 +527,7 @@ function previewHtml(o, pv, rate) {
   const c = pv.customs;
   const masked = JSON.stringify(pv.request, null, 2).replace(/("(?:ShipperNumber|AccountNumber)":\s*")(\w*)(\w{2})"/g, (m, a, b, d) => `${a}${'•'.repeat(b.length)}${d}"`);
   return `<section class="pv">${head}
+    ${c?.vatNote ? `<p class="vatbanner"><strong>TVA déjà payée</strong> — mention ajoutée sur la facture commerciale (Comments) et sur l'étiquette (référence 2) :<br>${esc(c.vatNote)}</p>` : ''}
     ${pv.warnings.length ? `<ul class="pv-warn">${pv.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
     <div class="pv-grid">
       <table><caption>Destinataire</caption>
@@ -542,7 +543,8 @@ function previewHtml(o, pv, rate) {
       </table>
       <table><caption>Envoi</caption>
         ${row('Expéditeur', `${esc(pv.shipper.name)} — ${pv.shipper.business ? 'entreprise' : 'particulier'}`)}
-        ${row('Référence (n° de commande)', `<code>${esc(pv.reference)}</code>`)}
+        ${row('Référence 1 (n° de commande)', `<code>${esc(pv.reference)}</code>`)}
+        ${pv.references?.[1] ? row('Référence 2 (imprimée sur l\'étiquette)', `<code>${esc(pv.references[1])}</code>`, 'vatrow') : ''}
         ${row('Valeur déclarée (assurance)', pv.declaredValue ? esc(pv.declaredValue) : 'aucune')}
         ${row('Colis', esc(`${pv.package.dims} · ${pv.package.weight}`))}
         ${row('Description colis', esc(pv.package.description))}
