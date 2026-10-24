@@ -178,6 +178,7 @@ function cardHtml(o) {
       <span class="ref">${esc(o.ref)}</span>
       <span class="muted">${fdate(o.date)} · ${esc(o.buyer)}</span>
       <span class="zone ${o.customs ? 'customs' : ''}">${esc(a.country)} · ${ZONE[o.zone]}${o.customs ? ' · douane' : ''}</span>
+      ${o.vat > 0 && o.customs ? `<span class="vatpaid" title="TVA déjà encaissée par ${esc(PLAT[o.platform])} : mention ajoutée à la facture commerciale et à l'étiquette">TVA payée : ${fmt(o.vat, o.currency)}</span>` : ''}
       <span class="val">${fmt(o.goodsValue, o.currency)}</span>
       ${o.manual && !done ? `<button class="linkbtn" data-del-manual="${esc(o.key)}" title="Supprimer cet envoi manuel">supprimer</button>` : ''}
     </div>
@@ -557,6 +558,7 @@ function previewHtml(o, pv, rate) {
         ${row('Valeur totale en douane', fmt(c.total, c.currency))}
         ${row('Pays d\'origine', esc(c.origin))}
         ${row('Droits et taxes payés par', esc(c.dutiesPaidBy))}
+        ${c.vatNote ? row('Mention TVA (facture + étiquette)', `<strong>${esc(c.vatNote)}</strong>`, 'vatrow') : ''}
       </table>` : ''}
     </div>
     <details><summary>Requête exacte envoyée à UPS</summary><pre>${esc(masked)}</pre></details>

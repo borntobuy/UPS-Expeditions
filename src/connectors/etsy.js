@@ -162,6 +162,8 @@ export async function fetchOrders() {
       qty: t.quantity,
       price: money(t.price) * (t.quantity || 1),
     })),
+    // TVA / taxe encaissée par Etsy auprès de l'acheteur (total_vat_cost, sinon total_tax_cost)
+    vat: money(r.total_vat_cost) || money(r.total_tax_cost) || 0,
     goodsValue: money(r.subtotal) || money(r.grandtotal),
     currency: (r.subtotal || r.grandtotal)?.currency_code || 'EUR',
   }));

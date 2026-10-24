@@ -146,6 +146,13 @@ const weight = (parcel) => ({
 });
 
 const moneyVal = (v) => Number(v).toFixed(2);
+
+/** TVA déjà encaissée par la plateforme (Etsy) : mention pour la douane (envois avec douane uniquement) */
+export function vatNote(o) {
+  const v = Number(o.vat);
+  if (!(v > 0) || !needsCustoms(o.address.country, o.address.postalCode)) return '';
+  return `VAT/TAX ALREADY PAID BY BUYER AT CHECKOUT (COLLECTED BY ${String(o.platform || 'MARKETPLACE').toUpperCase()}): ${moneyVal(v)} ${o.currency || ''}. NO IMPORT VAT TO BE CHARGED AGAIN. Order ${String(o.ref).replace(/^#/, '')}`.replace(/\s+/g, ' ').trim();
+}
 const hsCode = (p) => String(p.hsCode ?? '').replace(/[^0-9A-Za-z]/g, '');
 
 // ---------- Tarifs ----------
@@ -222,7 +229,10 @@ export function buildShipmentRequest(o, serviceCode) {
     PaymentInformation: { ShipmentCharge: charges },
     Service: { Code: serviceCode },
     // n° de commande de la plateforme (référence niveau envoi : autorisée hors US→US / PR→PR)
-    ReferenceNumber: [{ Value: cut(String(o.ref).replace(/^#/, ''), 35) }],
+    ReferenceNumber: [
+      { Value: cut(String(o.ref).replace(/^#/, ''), 35) },
+      ...(vatNote(o) ? [{ Value: 'VAT PAID BY BUYER' }] : []), // 2e référence, imprimée sur l'étiquette (à vérifier à la 1re étiquette)
+    ],
     // pas de DeclaredValue : aucune valeur déclarée (assurance) sur le colis
     Package: [
       {
@@ -244,6 +254,7 @@ export function buildShipmentRequest(o, serviceCode) {
         InvoiceNumber: cut(String(o.ref).replace(/^#/, ''), 35), // n° de commande de la plateforme
         InvoiceDate: yyyymmdd(),
         ReasonForExport: 'GIFT',
+        ...(vatNote(o) ? { Comments: cut(vatNote(o), 150), DeclarationStatement: cut(vatNote(o), 150) } : {}),
         CurrencyCode: p.currency,
         Contacts: { SoldTo: soldTo },
         Product: [
@@ -323,6 +334,7 @@ export function previewShipment(o, serviceCode) {
           unitValue: prod.Unit.Value,
           total: (Number(prod.Unit.Value) * Number(prod.Unit.Number)).toFixed(2),
           origin: prod.OriginCountryCode,
+          vatNote: f.Comments || '',
           dutiesPaidBy: config.ups.ddp ? 'expéditeur (DDP)' : 'destinataire',
         }
       : null,

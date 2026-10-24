@@ -199,3 +199,6 @@ dialog h2 { margin: 0 0 10px; font-size: 17px; }
 .quote-table { border-collapse: collapse; }
 .quote-table td { padding: 3px 14px 3px 0; }
 .quote-table tr.best td { background: #fff7e0; }
+
+.vatpaid { font-size: 12px; font-weight: 600; padding: 2px 8px; border-radius: 5px; background: #e3f4e8; color: #17613a; }
+.vatrow td { background: #e3f4e8; color: #17613a; }

@@ -37,10 +37,10 @@ export function mockOrders() {
       goodsValue: 131, currency: 'USD',
     },
     {
-      key: 'ebay:23-11111-22222', platform: 'ebay', ref: '23-11111-22222', date: day(3), buyer: 'londonfinds',
+      key: 'etsy:3301250123', platform: 'etsy', ref: '3301250123', date: day(3), buyer: 'londonfinds',
       address: { name: 'Oliver Hughes', company: '', line1: '5 Camden Passage', line2: '', city: 'London', state: '', postalCode: 'N1 8EA', country: 'GB', phone: '+447700900123', email: '' },
       items: [{ title: 'Faience plate Quimper', sku: 'FA-077', image: demoImg('Assiette', '#2e6f95'), qty: 1, price: 65 }],
-      goodsValue: 65, currency: 'EUR',
+      goodsValue: 65, currency: 'EUR', vat: 13,
     },
   ];
 }
