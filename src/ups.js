@@ -148,8 +148,15 @@ const weight = (parcel) => ({
 const moneyVal = (v) => Number(v).toFixed(2);
 
 /** N° de TVA de la plateforme par pays de destination (fourni par le vendeur) */
-const PLATFORM_VAT_ID = { etsy: { GB: "Etsy's UK VAT number, 370 6004 28" } };
-const vatId = (o) => PLATFORM_VAT_ID[o.platform]?.[String(o.address.country).toUpperCase()] || '';
+const PLATFORM_VAT_ID = {
+  etsy: {
+    GB: { text: "Etsy's UK VAT number, 370 6004 28", label: 'ETSY UK VAT 370 6004 28' },
+    // indiqué par Etsy sur la commande (« Norway VOEC Collected »)
+    NO: { text: "Etsy's VOEC number 2021137", label: 'ETSY VOEC 2021137' },
+  },
+};
+const vatEntry = (o) => PLATFORM_VAT_ID[o.platform]?.[String(o.address.country).toUpperCase()];
+const vatId = (o) => vatEntry(o)?.text || '';
 
 /** TVA déjà encaissée par la plateforme (Etsy) : mention pour la douane (envois avec douane uniquement) */
 export function vatNote(o) {
@@ -159,7 +166,7 @@ export function vatNote(o) {
 }
 
 /** Texte court imprimé sur l'étiquette (35 car. max) */
-const vatLabelRef = (o) => cut(vatId(o).replace("'s", '').replace(' number,', '').toUpperCase() || 'VAT PAID BY BUYER', 35);
+const vatLabelRef = (o) => cut(vatEntry(o)?.label || 'VAT PAID BY BUYER', 35);
 const hsCode = (p) => String(p.hsCode ?? '').replace(/[^0-9A-Za-z]/g, '');
 
 // ---------- Tarifs ----------
