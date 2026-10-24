@@ -155,7 +155,7 @@ export async function fetchOrders() {
       email: r.buyer_email || '',
     },
     items: (r.transactions || []).map((t) => ({
-      title: t.title,
+      title: String(t.title || '').replace(/&quot;/g, '"').replace(/&#39;|&apos;/g, "'").replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>'),
       sku: t.sku || '',
       listingId: t.listing_id,
       imageId: t.listing_image_id,

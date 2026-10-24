@@ -221,8 +221,14 @@ function chunks(s, size, max) {
   const out = [];
   let rest = String(s || '').trim();
   while (rest && out.length < max) {
-    out.push(rest.slice(0, size));
-    rest = rest.slice(size).trim();
+    // coupe au dernier espace pour ne pas scinder un mot (sauf mot plus long que la ligne)
+    let n = size;
+    if (rest.length > size) {
+      const sp = rest.lastIndexOf(' ', size);
+      if (sp > size / 2) n = sp;
+    }
+    out.push(rest.slice(0, n).trim());
+    rest = rest.slice(n).trim();
   }
   return out.length ? out : ['Merchandise'];
 }
