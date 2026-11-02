@@ -47,7 +47,7 @@ export const thumbError = (key) => load('thumbs', {})[key]?.err || '';
 export async function cachedThumb(key, fetcher, orderKey) {
   if (orderKey && shippedInApp(orderKey)) return ''; // déjà traitée : pas de miniature
   const c = load('thumbs', {})[key];
-  if (c && Date.now() - c.t < (c.url ? THUMB_TTL * 4 : THUMB_MISS_TTL)) {
+  if (c && (c.url || c.err) && Date.now() - c.t < (c.url ? THUMB_TTL * 4 : THUMB_MISS_TTL)) {
     if (orderKey && !(c.orders || []).includes(orderKey)) {
       update('thumbs', {}, (all) => {
         all[key] = { ...all[key], orders: [...new Set([...(all[key].orders || []), orderKey])] };
