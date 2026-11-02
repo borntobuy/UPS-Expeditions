@@ -41,6 +41,9 @@ export function shippedInApp(orderKey, shipments = load('shipments', {}), handle
   return Boolean((s && !s.voided) || handled[orderKey]);
 }
 
+/** Raison du dernier échec de récupération d'une miniature (diagnostic) */
+export const thumbError = (key) => load('thumbs', {})[key]?.err || '';
+
 export async function cachedThumb(key, fetcher, orderKey) {
   if (orderKey && shippedInApp(orderKey)) return ''; // déjà traitée : pas de miniature
   const c = load('thumbs', {})[key];
@@ -53,13 +56,16 @@ export async function cachedThumb(key, fetcher, orderKey) {
     return c.url;
   }
   let url = '';
+  let err = '';
   try {
     url = (await fetcher()) || '';
-  } catch {
+    if (!url) err = 'aucune image renvoyée';
+  } catch (e) {
     url = '';
+    err = String(e.message || e).slice(0, 120);
   }
   update('thumbs', {}, (all) => {
-    all[key] = { url, t: Date.now(), orders: [...new Set([...(all[key]?.orders || []), ...(orderKey ? [orderKey] : [])])] };
+    all[key] = { url, ...(err ? { err } : {}), t: Date.now(), orders: [...new Set([...(all[key]?.orders || []), ...(orderKey ? [orderKey] : [])])] };
   });
   return url;
 }

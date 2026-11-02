@@ -1,7 +1,7 @@
 // Etsy — Open API v3 (OAuth 2.0 + PKCE, en-tête x-api-key "keystring:secret")
 import { createHash, randomBytes } from 'node:crypto';
 import { config } from '../config.js';
-import { load, update, cachedThumb, eachLimit } from '../store.js';
+import { load, update, cachedThumb, thumbError, eachLimit } from '../store.js';
 
 const API = 'https://api.etsy.com/v3';
 // transactions_w : nécessaire pour envoyer le numéro de suivi (createReceiptShipment)
@@ -168,17 +168,28 @@ export async function fetchOrders() {
     currency: (r.subtotal || r.grandtotal)?.currency_code || 'EUR',
   }));
 
-  // miniature : image principale de l'annonce (getListingImage → url_170x135)
-  const pairs = orders.flatMap((o) => o.items.map((i) => [o.key, i])).filter(([, i]) => i.listingId && i.imageId);
+  // miniature : image principale de l'annonce (getListingImage → url_170x135) ;
+  // à défaut (image non indiquée sur la transaction, annonce retirée…) : 1re image de l'annonce (getListingImages)
+  const pairs = orders.flatMap((o) => o.items.map((i) => [o.key, i])).filter(([, i]) => i.listingId);
   await eachLimit(pairs, 3, async ([orderKey, i]) => {
+    const key = `etsy:${i.listingId}:${i.imageId || 'first'}`;
     i.image = await cachedThumb(
-      `etsy:${i.listingId}:${i.imageId}`,
+      key,
       async () => {
-        const img = await get(`/application/listings/${i.listingId}/images/${i.imageId}`);
-        return img.url_170x135 || img.url_75x75 || '';
+        let img;
+        if (i.imageId) {
+          try {
+            img = await get(`/application/listings/${i.listingId}/images/${i.imageId}`);
+          } catch {
+            /* repli ci-dessous */
+          }
+        }
+        if (!img) img = (await get(`/application/listings/${i.listingId}/images`)).results?.[0];
+        return img?.url_170x135 || img?.url_75x75 || '';
       },
       orderKey,
     );
+    if (!i.image) i.imageErr = thumbError(key);
   });
   for (const [, i] of pairs) {
     delete i.listingId;
