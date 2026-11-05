@@ -52,11 +52,12 @@ export function mockRates(o) {
     zone === 'FR' ? [['11', 9 + w * 1.2], ['65', 21 + w * 2.5], ['07', 29 + w * 3]]
     : zone === 'EU' ? [['11', 14 + w * 2], ['65', 32 + w * 4], ['07', 41 + w * 5]]
     : [['08', 52 + w * 7], ['65', 58 + w * 8], ['07', 71 + w * 9]];
-  return table.map(([code, total]) => ({
+  const ins = o.parcel.insure === true || o.parcel.insure === 'true' ? Number(o.parcel.value) * 0.012 : 0; // démo : ~1,2 % de la valeur
+  return table.map(([code, total0]) => { const total = total0 + ins; return {
     code, name: serviceName(code), total: Math.round(total * 100) / 100, currency: 'EUR',
     negotiated: true, publishedTotal: Math.round(total * 1.35 * 100) / 100, days: null,
     billingWeight: Math.ceil(w * 2) / 2, billingUnit: 'KGS',
-  }));
+  }; });
 }
 
 export function mockShipment(o, serviceCode) {

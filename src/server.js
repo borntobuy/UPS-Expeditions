@@ -247,6 +247,7 @@ app.post(
       value: Number(String(b.value).replace(',', '.')) || 20,
       currency: 'EUR',
       contents: 'Estimation',
+      insure: b.insure === 'on' || b.insure === true,
     };
     const miss = [];
     for (const [k, l] of [['length', 'longueur'], ['width', 'largeur'], ['height', 'hauteur'], ['weight', 'poids']]) {

@@ -168,6 +168,11 @@ export function vatNote(o) {
 
 /** Texte court imprimé sur l'étiquette (35 car. max) */
 const vatLabelRef = (o) => cut(vatEntry(o)?.label || 'VAT PAID BY BUYER', 35);
+/** Assurance : valeur déclarée UPS sur le colis (valeur saisie, devise du colis) si la case est cochée */
+const insured = (p) =>
+  p.insure === true || p.insure === 'true'
+    ? { PackageServiceOptions: { DeclaredValue: { CurrencyCode: p.currency, MonetaryValue: moneyVal(p.value) } } }
+    : {};
 const hsCode = (p) => String(p.hsCode ?? '').replace(/[^0-9A-Za-z]/g, '');
 
 // ---------- Tarifs ----------
@@ -178,7 +183,7 @@ export async function shopRates(o) {
     Shipper: shipperParty(true),
     ShipFrom: shipperParty(false),
     ShipTo: shipToParty(o),
-    Package: [{ PackagingType: { Code: '02' }, Dimensions: dims(p), PackageWeight: weight(p) }],
+    Package: [{ PackagingType: { Code: '02' }, Dimensions: dims(p), PackageWeight: weight(p), ...insured(p) }],
   };
   if (config.ups.negotiated) shipment.ShipmentRatingOptions = { NegotiatedRatesIndicator: 'Y' };
   if (needsCustoms(o.address.country, o.address.postalCode)) {
@@ -254,13 +259,14 @@ export function buildShipmentRequest(o, serviceCode) {
       { Value: cut(String(o.ref).replace(/^#/, ''), 35) },
       ...(vatNote(o) ? [{ Value: vatLabelRef(o) }] : []), // 2e référence, imprimée sur l'étiquette (à vérifier à la 1re étiquette)
     ],
-    // pas de DeclaredValue : aucune valeur déclarée (assurance) sur le colis
+    // DeclaredValue (assurance) seulement si la case « Assurer » est cochée
     Package: [
       {
         Description: cut(p.contents, 35),
         Packaging: { Code: '02' },
         Dimensions: dims(p),
         PackageWeight: weight(p),
+        ...insured(p),
       },
     ],
   };
@@ -338,7 +344,9 @@ export function previewShipment(o, serviceCode) {
     shipper: { name: sh.Shipper.Name, business: Boolean(config.shipper.company) },
     reference: sh.ReferenceNumber?.[0]?.Value || '',
     references: (sh.ReferenceNumber || []).map((r) => r.Value),
-    declaredValue: sh.Package[0].PackageServiceOptions?.DeclaredValue ? 'oui' : '',
+    declaredValue: sh.Package[0].PackageServiceOptions?.DeclaredValue
+      ? `${sh.Package[0].PackageServiceOptions.DeclaredValue.MonetaryValue} ${sh.Package[0].PackageServiceOptions.DeclaredValue.CurrencyCode}`
+      : '',
     package: {
       dims: `${sh.Package[0].Dimensions.Length} × ${sh.Package[0].Dimensions.Width} × ${sh.Package[0].Dimensions.Height} cm`,
       weight: `${sh.Package[0].PackageWeight.Weight} kg`,

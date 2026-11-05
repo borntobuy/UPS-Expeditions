@@ -203,6 +203,7 @@ function cardHtml(o) {
       <label class="f"><span>Devise</span><select data-k="${esc(o.key)}" data-p="currency">
         ${['EUR', 'USD', 'GBP', 'CAD', 'CHF', 'AUD'].map((c) => `<option ${p.currency === c ? 'selected' : ''}>${c}</option>`).join('')}
       </select></label>
+      <label class="f"><span>Assurer</span><input type="checkbox" data-k="${esc(o.key)}" data-p="insure" ${p.insure === true || p.insure === 'true' ? 'checked' : ''} title="Assure le colis à la valeur déclarée (surcoût UPS inclus dans le tarif)"></label>
       ${o.customs ? field(o.key, 'hsCode', 'Code SH (6 chiffres min.)', p.hsCode, 'inputmode="numeric" placeholder="ex. 970690" title="6 à 15 chiffres, points acceptés (9706.90)"') : ''}
     </div>`}
     <div class="result" data-result="${esc(o.key)}">${resultHtml(o)}</div>
@@ -342,7 +343,7 @@ $('#orders').addEventListener('input', (e) => {
   const o = key && byKey(key);
   if (!o) return;
   if (t.dataset.p) {
-    let v = t.value;
+    let v = t.type === 'checkbox' ? t.checked : t.value;
     if (NUM.has(t.dataset.p)) v = v.replace(',', '.');
     o.parcel[t.dataset.p] = v;
     if (['length', 'width', 'height', 'weight'].includes(t.dataset.p)) {
