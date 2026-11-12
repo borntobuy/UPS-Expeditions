@@ -106,15 +106,33 @@ async function accessToken() {
   return j.access_token;
 }
 
+// Quota Etsy : appels comptés depuis le démarrage, limite/restant lus dans les en-têtes de réponse
+const quota = { calls: 0, limit: null, remaining: null, blockedUntil: 0 };
+const BLOCK_MS = 30 * 60_000; // quota atteint : on ne sollicite plus Etsy pendant 30 min (un appel de test ensuite)
+export const quotaInfo = () => ({ ...quota });
+
 async function get(pathname) {
+  if (quota.blockedUntil > Date.now()) {
+    const hm = new Date(quota.blockedUntil).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
+    throw new Error(`limite quotidienne Etsy atteinte (${quota.calls} appels depuis le démarrage) : nouvel essai vers ${hm}`);
+  }
+  quota.calls++;
   const r = await fetch(`${API}${pathname}`, {
     headers: {
       'x-api-key': `${config.etsy.keystring}:${config.etsy.sharedSecret}`,
       Authorization: `Bearer ${await accessToken()}`,
     },
   });
+  const lim = r.headers.get('x-limit-per-day');
+  const rem = r.headers.get('x-remaining-today');
+  if (lim) quota.limit = Number(lim);
+  if (rem) quota.remaining = Number(rem);
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || `HTTP ${r.status}`);
+  if (!r.ok) {
+    const msg = String(j.error || `HTTP ${r.status}`);
+    if (r.status === 429 || /rate limit/i.test(msg)) quota.blockedUntil = Date.now() + BLOCK_MS;
+    throw new Error(msg);
+  }
   return j;
 }
 
@@ -131,7 +149,23 @@ async function shopId() {
 
 const money = (m) => (m ? Number(m.amount) / Number(m.divisor || 100) : 0);
 
+let cache = { t: 0, orders: null };
+const CACHE_MS = 2 * 60_000; // évite de réinterroger Etsy à chaque action dans l'application
+
 export async function fetchOrders() {
+  if (cache.orders && Date.now() - cache.t < CACHE_MS) return structuredClone(cache.orders);
+  try {
+    const orders = await fetchFresh();
+    cache = { t: Date.now(), orders: structuredClone(orders) };
+    return orders;
+  } catch (e) {
+    // quota atteint : on garde la dernière liste connue plutôt que d'afficher une liste vide
+    if (cache.orders && quota.blockedUntil > Date.now()) return structuredClone(cache.orders);
+    throw e;
+  }
+}
+
+async function fetchFresh() {
   const id = await shopId();
   const j = await get(
     `/application/shops/${id}/receipts?was_paid=true&was_shipped=false&was_canceled=false&limit=100`,

@@ -91,6 +91,7 @@ app.get('/api/status', (req, res) => {
     shipperOk: Boolean(config.shipper.line1 && config.shipper.phone),
     labelFormat: config.ups.labelFormat,
     platforms,
+    etsyQuota: config.mock ? null : etsy.quotaInfo(),
     warnings: config.mock ? [] : [...(ebay.configured() ? ebay.diagnose() : []), ...etsyWarnings()],
     presets: load('presets', DEFAULT_PRESETS),
   });
