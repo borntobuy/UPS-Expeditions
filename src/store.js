@@ -61,6 +61,7 @@ export async function cachedThumb(key, fetcher, orderKey) {
     url = (await fetcher()) || '';
     if (!url) err = 'aucune image renvoyée';
   } catch (e) {
+    if (e.transient) return ''; // limite Etsy passagère : on réessaiera au prochain chargement, rien n'est mémorisé
     url = '';
     err = String(e.message || e).slice(0, 120);
   }

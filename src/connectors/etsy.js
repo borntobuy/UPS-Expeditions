@@ -111,12 +111,12 @@ const quota = { calls: 0, limit: null, remaining: null, blockedUntil: 0 };
 const BLOCK_MS = 30 * 60_000; // quota atteint : on ne sollicite plus Etsy pendant 30 min (un appel de test ensuite)
 export const quotaInfo = () => ({ ...quota });
 
-async function get(pathname) {
+async function get(pathname, retried = false) {
   if (quota.blockedUntil > Date.now()) {
     const hm = new Date(quota.blockedUntil).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/Paris' });
     throw new Error(`limite quotidienne Etsy atteinte (${quota.calls} appels depuis le démarrage) : nouvel essai vers ${hm}`);
   }
-  quota.calls++;
+  if (!retried) quota.calls++;
   const r = await fetch(`${API}${pathname}`, {
     headers: {
       'x-api-key': `${config.etsy.keystring}:${config.etsy.sharedSecret}`,
@@ -130,7 +130,18 @@ async function get(pathname) {
   const j = await r.json().catch(() => ({}));
   if (!r.ok) {
     const msg = String(j.error || `HTTP ${r.status}`);
-    if (r.status === 429 || /rate limit/i.test(msg)) quota.blockedUntil = Date.now() + BLOCK_MS;
+    if (r.status === 429 || /rate limit/i.test(msg)) {
+      // quota du jour réellement épuisé (restant = 0 ou message « daily ») : pause longue ; sinon simple limite par seconde
+      const daily = quota.remaining === 0 || /daily/i.test(msg);
+      if (daily) quota.blockedUntil = Date.now() + BLOCK_MS;
+      else if (!retried) {
+        await new Promise((res) => setTimeout(res, 1500));
+        return get(pathname, true);
+      }
+      const err = new Error(msg);
+      err.transient = true; // ne pas mémoriser comme « pas de photo »
+      throw err;
+    }
     throw new Error(msg);
   }
   return j;
@@ -205,7 +216,7 @@ async function fetchFresh() {
   // miniature : image principale de l'annonce (getListingImage → url_170x135) ;
   // à défaut (image non indiquée sur la transaction, annonce retirée…) : 1re image de l'annonce (getListingImages)
   const pairs = orders.flatMap((o) => o.items.map((i) => [o.key, i])).filter(([, i]) => i.listingId);
-  await eachLimit(pairs, 3, async ([orderKey, i]) => {
+  await eachLimit(pairs, 2, async ([orderKey, i]) => {
     const key = `etsy:${i.listingId}:${i.imageId || 'first'}`;
     i.image = await cachedThumb(
       key,
